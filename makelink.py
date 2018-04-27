@@ -8,37 +8,41 @@ import os,shutil
 class MakeLink:
     oldata_local_path=''
     tdata_path=''
-    newdata_path=''
-    def __init__(self,oldata_local_path,tdata_path,newdata_path):
+    newdata_path=dict()
+    def __init__(self,oldata_local_path,tdata_path,**newdata_path):
         self.oldata_local_path=oldata_local_path
         self.tdata_path=tdata_path
         self.newdata_path=newdata_path
     def makelink(self):
-        print('oldata_local_path:',self.oldata_local_path)
-        print('tdata_path:',self.tdata_path)
-        print('newdata_path:',self.newdata_path)
+#        print('oldata_local_path:',self.oldata_local_path)
+#        print('tdata_path:',self.tdata_path)
+#        print('newdata_path:',self.newdata_path)
         tpath_data_dir=self.tdata_path+"/data"
         if(os.path.exists(tpath_data_dir)):
-            print('tpath_data_dir is exist')
-            shutil.rmtree(tpath_data_dir)
-        os.makedirs(self.tdata_path+'/'+self.newdata_path)
-        
-        dir_lst=list()
-        if self.newdata_path[-1] == "/":
-            dir_lst = self.newdata_path[:-1].split('/')
-        else:
-            dir_lst = self.newdata_path.split('/')
-        print(dir_lst)
-        #dir_lst=['data', 'base', 'nb']
-        #newlst: ['data/', 'data/base/', 'data/base/nb/']
+            os.popen('rm -rf %s' % tpath_data_dir)
         newlst=list()
-        for index,dir in enumerate(dir_lst):
-            print(index,dir)
-            newpath=''
-            for i in range(index+1):
-                newpath+=dir_lst[i]+"/"
-            newlst.append(newpath)
-        print('newlst:',newlst)
+        for dirs in self.newdata_path.values():
+            if os.path.exists(self.tdata_path+'/' + dirs):
+                continue
+            os.makedirs(self.tdata_path+'/' + dirs)
+            dir_lst=list()
+            if dirs[-1] == '/':
+                dir_lst = dirs[:-1].split('/')
+            else:
+                dir_lst = dirs.split('/')
+#            print('dirlst:',dir_lst)
+#            print(dir_lst)
+            #dir_lst=['data', 'base', 'nb']
+            #newlst: ['data/', 'data/base/', 'data/base/nb/']
+
+            for index,dir in enumerate(dir_lst):
+                print(index,dir)
+                newpath=''
+                for i in range(index+1):
+                    newpath+=dir_lst[i]+"/"
+                newlst.append(newpath)
+        newlst=list(set(newlst))
+#        print('newlst:',newlst)
 
         for k,item in enumerate(newlst):
             for filename in os.listdir(self.oldata_local_path+'/'+item):
@@ -49,5 +53,6 @@ class MakeLink:
 
 
 if __name__ == '__main__':
-    mklink = MakeLink('/search/summary_o/webqo','/search/odin/daemon/webqo/qo_test/QueryOptimizer','data/base/nb')
+    dir_dict={'/search/ssd2/wuzhen/qodata_online/base/nb/adjoin_model.cpp': 'data/base/nb', '/search/ssd2/wuzhen/qodata_online/base/nb/*': 'data/base/vr'}
+    mklink = MakeLink('/search/summary_o/webqo','/search/odin/daemon/webqo/qo_test/QueryOptimizer',**dir_dict)
     mklink.makelink()
