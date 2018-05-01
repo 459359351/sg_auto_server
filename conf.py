@@ -16,8 +16,9 @@ online_path = "/search/odin/daemon/qo"
 #test_query_disk_root = "/search/data2/test_query/"
 #update_tmp_file = '/tmp/.is_autotest_update'
 
-output = os.popen("sogou-host -a | head -1")
-local_ip = output.read().replace('\n', '')
+#output = os.popen("sogou-host -a | head -1")
+#local_ip = output.read().replace('\n', '')
+local_ip='10.144.82.27'
 root_path="/search/odin/daemon/webqo/"
 
 test_path_1="qo_test"
@@ -38,5 +39,7 @@ database_data="sogotest"
 database_table="webqo_webqoqps"
 database_user="root"
 database_pass="Zhangjj@sogou123"
+
+
 
 log_file = os.path.join(autoqps_path, "log/autorun.log")
