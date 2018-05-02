@@ -188,7 +188,15 @@ def checkcode_env(file_path, svn):
     mysvn = svnpkg.SvnPackage("qa_svnreader", "New$oGou4U!")
 
     for line in svn.split("\n"):
+
+#        if line == "":
+#            continue
+#        if (line.find(';') == 0):
+#            continue
         pos = line.find('=')
+#        if (pos == -1 and line.find('http://') == 0):
+#            line = ".=" +line
+#            pos = 1
         key = line[0:pos]
         value = line[pos+1:]
         if (value.find('http://') != 0):
@@ -281,6 +289,7 @@ def scpnewdata(file_path,host_ip,username,password,newdata_path):
             update_errorlog(errlog)
             return 1
         update_errorlog("[%s] rsync ol_data to local success\n" % get_now_time())
+        return 0
     else:
         new_data_dir = dict()
         for new_data in new_data_lst:
@@ -296,7 +305,7 @@ def scpnewdata(file_path,host_ip,username,password,newdata_path):
                 if os.path.exists(file_path+'/'+new_data_dir[item]+'/'+files):
                     os.popen("rm -rf %s" % (file_path+'/'+new_data_dir[item]+'/'+files))
  
-            update_errorlog("[%s] try scp rd data %s to test enviroment\n" % (get_now_time(),new_data_dir[item]))
+            update_errorlog("[%s] try scp rd data to test enviroment\n" % get_now_time())
 
             passwd_key = '.*assword.*'
 
@@ -312,12 +321,11 @@ def scpnewdata(file_path,host_ip,username,password,newdata_path):
                     child.sendline('yes')
                     child.expect(passwd_key,timeout=30)
                     child.sendline(password)
-                child.timeout=120
                 child.expect(pexpect.EOF)
 
             except Exception as e:
                 update_errorlog("[%s] %s, scp rd data \n" % (get_now_time(), e))
-            update_errorlog("[%s] try scp rd data %s  to test enviroment ok\n" % (get_now_time(),new_data_dir[item]))
+
     return 0
 
 
@@ -454,16 +462,16 @@ def lanch(file_path, start_script, port, log):
 
 
 
-def run_performace(file_path, cost_type):
+def run_performace(file_path, x):
     cost = []
     ret = performance_once(file_path, cost)
     if (ret !=0):
         return ret
-    set_content_to_x(cost, cost_type)
+    set_content_to_x(cost, x)
     return 0
 
 
-def set_content_to_x(content, cost_type):
+def set_content_to_x(content, x):
     tmp = []
     total_content = ""
     if (type(content) == type(tmp)):
@@ -590,7 +598,7 @@ def main():
     loginfo.log_info("newdatapath:"+ newdatapath)
     loginfo.log_info("newdata_topath:"+newdata_topath)
     loginfo.log_info("press_qps:"+str(press_qps))
-    loginfo.log_info("press_time:"+str(press_time))
+    loginfo.log_info("press_time:"+str(press_qps))
 
     ####configure sggp/ACE_Pressure_CACHE.ini
 
@@ -625,33 +633,33 @@ def main():
     if testsvn.strip() !="":        
         update_errorlog("[%s] %s\n" % (get_now_time(), "try start test"))
         update_errorlog("[%s] %s\n" % (get_now_time(), "start try build test enviroment"))
-#        ### check code
-#        try:
-#            update_errorlog("[%s] %s\n" % (get_now_time(), "test start try check code"))
-#            ret = checkcode_env(test_path, testsvn)
-#        except Exception as e:
-#            update_errorlog("[%s] %s\n" % (get_now_time(), e))
-#            set_status(3)
-#            return -1
-#
-#        if (ret != 0):
-#            set_status(3)
-#            return 4
-#        update_errorlog("[%s] %s\n" % (get_now_time(), "test check code ok"))
-#                
-#        ### make
-#        try:
-#            update_errorlog("[%s] %s\n" % (get_now_time(), "test start try make"))
-#            ret = make_env(test_path)
-#        except Exception as e:
-#            update_errorlog("[%s] %s\n" % (get_now_time(), e))
-#            set_status(3)
-#            return -1
-#
-#        if (ret != 0):
-#            set_status(3)
-#            return 4
-#        update_errorlog("[%s] %s\n" % (get_now_time(), "test make ok"))
+        ### check code
+        try:
+            update_errorlog("[%s] %s\n" % (get_now_time(), "test start try check code"))
+            ret = checkcode_env(test_path, testsvn)
+        except Exception as e:
+            update_errorlog("[%s] %s\n" % (get_now_time(), e))
+            set_status(3)
+            return -1
+
+        if (ret != 0):
+            set_status(3)
+            return 4
+        update_errorlog("[%s] %s\n" % (get_now_time(), "test check code ok"))
+                
+        ### make
+        try:
+            update_errorlog("[%s] %s\n" % (get_now_time(), "test start try make"))
+            ret = make_env(test_path)
+        except Exception as e:
+            update_errorlog("[%s] %s\n" % (get_now_time(), e))
+            set_status(3)
+            return -1
+
+        if (ret != 0):
+            set_status(3)
+            return 4
+        update_errorlog("[%s] %s\n" % (get_now_time(), "test make ok"))
         
         
         ### make test data link and scp new data to test env
@@ -680,6 +688,9 @@ def main():
             update_errorlog("[%s] %s\n" % (get_now_time(), e))
             set_status(3)
             return -1
+        if (ret != 0):
+            set_status(3)
+            return 4
         update_errorlog("[%s] %s\n" % (get_now_time(), "test start try to make link with ol_data on test ok"))
 
 
