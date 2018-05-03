@@ -30,10 +30,15 @@ ol_conf_path_1="tmp_conf"
 black_data_path="/search/odin/daemon/black_agent/data"
 
 cost_tool = os.path.join(root_path, "tools/cost_analysis.py")
-sggp_path = os.path.join(root_path, "tools/sggp")
-sggp_conf = os.path.join(root_path, "tools/sggp/web_qo.ini")
 start_sc = os.path.join(root_path, "tools/start.sh")
 
+#press conf
+sggp_path = os.path.join(root_path, "tools/sggp")
+sggp_conf = os.path.join(root_path, "tools/sggp/web_qo.ini")
+sggp_query_path = os.path.join(root_path, "tools/sggp/data/")
+
+
+#database conf
 database_host="10.134.110.163"
 database_data="sogotest"
 database_table="webqo_webqoqps"

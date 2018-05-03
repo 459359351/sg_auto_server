@@ -19,6 +19,7 @@ import signal
 import pexpect
 import shutil
 import logUtils
+import urllib
 
 db = pymysql.connect(database_host,database_user,database_pass,database_data)
 cursor = db.cursor()
@@ -34,7 +35,7 @@ def get_material():
 
 #newconfpath | newconfip | newconfpassw | newconfuser | newdataip | newdatapassw | newdatauser | newdatapath | newdata_topath
 
-    sql = "SELECT testsvn, basesvn, testitem, newconfip, newconfuser, newconfpassw, newconfpath, newdataip, newdatauser, newdatapassw, newdatapath, newdata_topath, press_qps, press_time FROM %s where id='%d'" % (database_table,mission_id)
+    sql = "SELECT testsvn, basesvn, testitem, newconfip, newconfuser, newconfpassw, newconfpath, newdataip, newdatauser, newdatapassw, newdatapath, newdata_topath, press_qps, press_time, press_expid, press_rate FROM %s where id='%d'" % (database_table,mission_id)
     cursor.execute(sql)
     data = cursor.fetchone()
     sql = "UPDATE %s set start_time='%s', status = 2 where id=%d" % (database_table, get_now_time() ,mission_id)
@@ -257,7 +258,11 @@ def maketestlink(oldata_local_path,tdata_path,newdata_path):
 
 
 def scpnewdata(file_path,host_ip,username,password,newdata_path):
-    new_data_lst = newdata_path.split('\n')
+    new_data = newdata_path.split('\n')
+    new_data_lst = list()
+    for nd in new_data:
+        if nd !="":
+            new_data_lst.append(nd)
     # scp whole data to test
     if len(new_data_lst) == 1 and new_data_lst[0].split(';')[1]=='data':
         rd_path = new_data_lst[0].split(';')[0]
@@ -471,7 +476,7 @@ def set_content_to_x(content, cost_type):
             total_content += line + '\n'
     elif (type(content) == type(total_content)):
         total_content = content
-    sql = "UPDATE %s set %s='%s' where id=%d" % (database_table, x, total_content.decode('gbk').encode('utf8'), mission_id)
+    sql = "UPDATE %s set %s='%s' where id=%d" % (database_table, cost_type, total_content.decode('gbk').encode('utf8'), mission_id)
     cursor.execute(sql)
     db.commit()
 
@@ -555,8 +560,40 @@ def configure_sggp(sggp_conf_file,qps,time):
     
     return 0
 
-
-
+def configure_sggp_test(sggp_path,qps,time,press_expid,press_rate):
+    if qps == '':
+        qps = 1000
+    if time == '' or time > 30:
+        time = 15
+    if press_rate < 0:
+        press_rate = 0
+    if press_rate > 100:
+        press_rate = 100
+    
+    if press_expid != 0 and press_rate > 0:
+        print sggp_path,qps,press_expid,press_rate
+        expid= hex(press_expid)[2:]+'^0^0^0^0^0^0^0^0'
+        commandline = 'echo '+expid+' | /search/odin/Tools/web_qo_qw/data/Encode -f utf8 -t utf16'
+        asycmd = asycommands.TrAsyCommands(timeout=240)
+        asycmd_list.append(asycmd)
+        for iotype, line in asycmd.execute_with_data([commandline], shell=True):
+            exp_id = "exp_id="+line
+        base_query=sggp_query_path+'query_qo_base'
+        command = '''awk '{print "'''+exp_id+""""$0}' """ +base_query+">"+sggp_query_path+"query_qo_expid"
+        try:
+            child = subprocess.Popen(command, shell = True, stdout = subprocess.PIPE, stderr = subprocess.PIPE)
+            child.communicate(input=None)
+            child.poll()
+        except Exception as e:
+            update_errorlog("[%s] create expid query wrong ,except:%s\n" % (get_now_time(), e))
+        prinr command
+        print child.poll()
+        print exp_id
+        if press_rate < 100:
+            pass
+        if press_rate == 100:
+            pass
+        
 
 
 def main():
@@ -575,7 +612,7 @@ def main():
 
     loginfo.log_info("mission_id:"+str(mission_id))
 
-    (testsvn, basesvn, testitem, newconfip, newconfuser, newconfpassw,newconfpath, newdataip, newdatauser, newdatapassw, newdatapath, newdata_topath, press_qps, press_time) = get_material()
+    (testsvn, basesvn, testitem, newconfip, newconfuser, newconfpassw,newconfpath, newdataip, newdatauser, newdatapassw, newdatapath, newdata_topath, press_qps, press_time, press_expid, press_rate) = get_material()
     
     loginfo.log_info("testsvn:"+ testsvn)
     loginfo.log_info("basesvn:"+basesvn)
@@ -591,15 +628,22 @@ def main():
     loginfo.log_info("newdata_topath:"+newdata_topath)
     loginfo.log_info("press_qps:"+str(press_qps))
     loginfo.log_info("press_time:"+str(press_time))
+    loginfo.log_info("press_expid:"+str(press_expid))
+    loginfo.log_info("press_rate:"+str(press_rate))
 
     ####configure sggp/ACE_Pressure_CACHE.ini
 
-    ret_configure_sggp = configure_sggp(sggp_conf,press_qps,press_time)
-    if ret_configure_sggp != 0:
+#    ret_configure_sggp = configure_sggp(sggp_conf,press_qps,press_time)
+#    if ret_configure_sggp != 0:
+#        update_errorlog("[%s] %s\n" % (get_now_time(), "configure sggp_conf has some error, pls check"))
+#        set_status(3)
+#        return -1
+
+    ret_configure_sggp_test = configure_sggp_test(sggp_path,press_qps,press_time,press_expid,press_rate)
+    if ret_configure_sggp_test != 0:
         update_errorlog("[%s] %s\n" % (get_now_time(), "configure sggp_conf has some error, pls check"))
         set_status(3)
         return -1
-
     
 #    ret_sync_ol_data = sync_ol_data_to_local(ol_data_path+"/data")
 #    if ret_sync_ol_data != 0:
@@ -607,18 +651,20 @@ def main():
 #        set_status(3)
 #        return -1
 
-    ret_sync_olbl_data = sync_olbl_data_to_local(black_data_path)
-    if ret_sync_olbl_data != 0:
-        update_errorlog("[%s] %s\n" % (get_now_time(), "sync_olbl_data_to_local has some error, pls check"))
-        set_status(3)
-        return -1
+#    ret_sync_olbl_data = sync_olbl_data_to_local(black_data_path)
+#    if ret_sync_olbl_data != 0:
+#        update_errorlog("[%s] %s\n" % (get_now_time(), "sync_olbl_data_to_local has some error, pls check"))
+#        set_status(3)
+#        return -1
+#
+#    ret_sync_ol_conf = sync_ol_conf_to_local(ol_conf_path)
+#    if ret_sync_ol_conf != 0:
+#        update_errorlog("[%s] %s\n" % (get_now_time(), "sync_ol_conf_to_local has some error, pls check"))
+#        set_status(3)
+#        return -1
 
-    ret_sync_ol_conf = sync_ol_conf_to_local(ol_conf_path)
-    if ret_sync_ol_conf != 0:
-        update_errorlog("[%s] %s\n" % (get_now_time(), "sync_ol_conf_to_local has some error, pls check"))
-        set_status(3)
-        return -1
 
+'''
 
 #### just run test
 #    if just_run_test == 1 and just_run_base == 0:
@@ -832,10 +878,9 @@ def main():
                 return 5
     set_status(4)
     return 0
+'''
 
 
-
-######
 
 def sig_handler(sig, frame):
     update_errorlog("[%s] task %d has been canceled\n" % (get_now_time(), mission_id))
