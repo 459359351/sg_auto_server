@@ -330,29 +330,31 @@ def scpnewdata(file_path,host_ip,username,password,newdata_path):
 
 def cp_new_conf(tmp_conf_path, test_env_path):
     ### cp ol_dev_conf to test env
+    update_errorlog("[%s] use cfg online ,cp it from tmp_conf_path\n" % get_now_time())
     if os.path.exists(test_env_path + "/QueryOptimizer/qo.cfg"):
         update_errorlog("[%s] %s\n" % (get_now_time(), "cfg  exists, del it"))
         os.popen("rm -rf " + test_env_path + "/QueryOptimizer/qo.cfg")
 
     os.popen("cp %s/qo.cfg %s/QueryOptimizer/" % (tmp_conf_path, test_env_path))
-    update_errorlog("[%s] sync ol_dev_conf to local success\n" % get_now_time())
+    update_errorlog("[%s] cp cfg from tmp_conf_path success\n" % get_now_time())
 
     return 0
 
 def cp_start_sc(file_path):
+    update_errorlog("[%s] %s\n" % (get_now_time(), "cp start.sh to env"))
     if os.path.exists(file_path + "/QueryOptimizer/start.sh"):
         update_errorlog("[%s] %s\n" % (get_now_time(), "test start.sh is exists, del it"))
         os.popen("rm -rf " + file_path + "/QueryOptimizer/start.sh")
     os.popen("cp %s  %s/QueryOptimizer/" % (start_sc, file_path))
-    update_errorlog("[%s] %s\n" % (get_now_time(), "test start.sh cp to test env ok"))
+    update_errorlog("[%s] %s\n" % (get_now_time(), "cp start.sh to env success"))
     return 0
 
 
 def scp_new_conf(file_path,newconfip,newconfuser,newconfpassw,newconfpath):
+    update_errorlog("[%s] try scp rd qo.cfg to test enviroment\n" % get_now_time())
     if os.path.exists(file_path + "/QueryOptimizer/qo.cfg"):
         update_errorlog("[%s] %s\n" % (get_now_time(), "cfg  exists, del it"))
         os.popen("rm -rf " + file_path + "/QueryOptimizer/qo.cfg")
-    update_errorlog("[%s] try scp rd qo.cfg to test enviroment\n" % get_now_time())
 
     passwd_key = '.*assword.*'
 
@@ -369,7 +371,8 @@ def scp_new_conf(file_path,newconfip,newconfuser,newconfpassw,newconfpath):
         child.expect(pexpect.EOF)
 
     except Exception as e:
-        update_errorlog("[%s] %s, scp rd qo.cfg \n" % (get_now_time(), e))
+        update_errorlog("[%s] %s, scp rd qo.cfg failed \n" % (get_now_time(), e))
+    update_errorlog("[%s] try scp rd qo.cfg to test enviroment success\n" % get_now_time())
     return 0
 
 
@@ -482,32 +485,34 @@ def set_content_to_x(content, cost_type):
 
 
 def performance_once(file_path, performance_result, cost_type):
-#    asycmd = asycommands.TrAsyCommands(timeout=120)
-#    asycmd_list.append(asycmd)
-#
-#    # kill lt-queryoptimiz
-#    for iotype, line in asycmd.execute_with_data(['ps -ef|grep lt-queryoptimiz|grep -v grep'], shell=True):
-#        if (line.find('lt-queryoptimiz') != -1):
-#            pid = int(line.split()[1])
-#            stop_proc(pid)
-#    log = []
-#    # start lt-queryoptimiz
-#    update_errorlog("start webqo")
-#    (ret, cache_pid) = lanch(file_path + "/QueryOptimizer", "start.sh", 8012, log)
-#    if (ret < 0):
-#        time.sleep(0.5)
-#        up_log = ""
-#        for line in log:
-#            up_log += "[%s] %s" % (get_now_time(), line + '\n')
-#        update_errorlog("%s\n" % (up_log))
-#        for iotype, line in asycmd.execute_with_data(['/bin/tail', '-50', file_path + "/QueryOptimizer/err.log"], shell=False):
-#            up_log += line +'\n'
-#        update_errorlog(up_log.decode('gbk').encode('utf-8').replace("'", "\\'"))
-#        return -1
-#    update_errorlog("[%s] webqo Start OK, cost %d s\n" % (get_now_time(), ret))
+    asycmd = asycommands.TrAsyCommands(timeout=120)
+    asycmd_list.append(asycmd)
+
+    # kill lt-queryoptimiz
+    for iotype, line in asycmd.execute_with_data(['ps -ef|grep lt-queryoptimiz|grep -v grep'], shell=True):
+        if (line.find('lt-queryoptimiz') != -1):
+            pid = int(line.split()[1])
+            stop_proc(pid)
+
+    log = []
+    # start lt-queryoptimiz
+    update_errorlog("[%s] Begin Start webqo\n" % get_now_time())
+    (ret, cache_pid) = lanch(file_path + "/QueryOptimizer", "start.sh", 8012, log)
+    if (ret < 0):
+        time.sleep(0.5)
+        up_log = ""
+        for line in log:
+            up_log += "[%s] %s" % (get_now_time(), line + '\n')
+        update_errorlog("%s\n" % (up_log))
+        for iotype, line in asycmd.execute_with_data(['/bin/tail', '-50', file_path + "/QueryOptimizer/err.log"], shell=False):
+            up_log += line +'\n'
+        update_errorlog(up_log.decode('gbk').encode('utf-8').replace("'", "\\'"))
+        return -1
+    update_errorlog("[%s] webqo Start OK, cost %d s\n" % (get_now_time(), ret))
 
     # Start PressTool
     log = []
+    update_errorlog("[%s] Begin start PressTool\n" % get_now_time())
     if cost_type == 'cost_test':
         (ret, tools_pid) = sggp_lanch(sggp_path, "start_qo_test.sh", log)
     else:
@@ -532,11 +537,11 @@ def performance_once(file_path, performance_result, cost_type):
         wait_to_die(subpid, 5*30)
     update_errorlog("[%s] PressTool stoped\n" % get_now_time())
 
-#    # Stop webqo
-#    stop_proc(cache_pid)
-#    update_errorlog("[%s] webqo stoped\n" % get_now_time())
-#
-#    return get_performance(file_path + '/QueryOptimizer/err.log', performance_result)
+    # Stop webqo
+    stop_proc(cache_pid)
+    update_errorlog("[%s] webqo stoped\n" % get_now_time())
+
+    return get_performance(file_path + '/QueryOptimizer/err.log', performance_result)
 
 def get_performance(log_file, performance):
     update_errorlog("[%s] start to get performance result\n" % get_now_time())
@@ -698,17 +703,17 @@ def main():
 #        set_status(3)
 #        return -1
 
-#    ret_sync_olbl_data = sync_olbl_data_to_local(black_data_path)
-#    if ret_sync_olbl_data != 0:
-#        update_errorlog("[%s] %s\n" % (get_now_time(), "sync_olbl_data_to_local has some error, pls check"))
-#        set_status(3)
-#        return -1
-#
-#    ret_sync_ol_conf = sync_ol_conf_to_local(ol_conf_path)
-#    if ret_sync_ol_conf != 0:
-#        update_errorlog("[%s] %s\n" % (get_now_time(), "sync_ol_conf_to_local has some error, pls check"))
-#        set_status(3)
-#        return -1
+    ret_sync_olbl_data = sync_olbl_data_to_local(black_data_path)
+    if ret_sync_olbl_data != 0:
+        update_errorlog("[%s] %s\n" % (get_now_time(), "sync_olbl_data_to_local has some error, pls check"))
+        set_status(3)
+        return -1
+
+    ret_sync_ol_conf = sync_ol_conf_to_local(ol_conf_path)
+    if ret_sync_ol_conf != 0:
+        update_errorlog("[%s] %s\n" % (get_now_time(), "sync_ol_conf_to_local has some error, pls check"))
+        set_status(3)
+        return -1
 
 
 
@@ -717,117 +722,118 @@ def main():
         update_errorlog("[%s] %s\n" % (get_now_time(), "try start test"))
         update_errorlog("[%s] %s\n" % (get_now_time(), "start try build test enviroment"))
 
-#        ### check code
-#        try:
-#            update_errorlog("[%s] %s\n" % (get_now_time(), "test start try check code"))
-#            ret = checkcode_env(test_path, testsvn)
-#        except Exception as e:
-#            update_errorlog("[%s] %s\n" % (get_now_time(), e))
-#            set_status(3)
-#            return -1
-#
-#        if (ret != 0):
-#            set_status(3)
-#            return 4
-#        update_errorlog("[%s] %s\n" % (get_now_time(), "test check code ok"))
-#                
-#        ### make
-#        try:
-#            update_errorlog("[%s] %s\n" % (get_now_time(), "test start try make"))
-#            ret = make_env(test_path)
-#        except Exception as e:
-#            update_errorlog("[%s] %s\n" % (get_now_time(), e))
-#            set_status(3)
-#            return -1
-#
-#        if (ret != 0):
-#            set_status(3)
-#            return 4
-#        update_errorlog("[%s] %s\n" % (get_now_time(), "test make ok"))
-#        
-#        
-#        ### make test data link and scp new data to test env
-#        try:
-#            update_errorlog("[%s] %s\n" % (get_now_time(), "test start try to make link with ol_data on test"))
-#            if newdatapath == '':
-#                if(os.path.exists(test_path+'/QueryOptimizer/data')):
-#                    loginfo.log_info('test_path_data_dir is exist')
-#                    os.popen('rm -rf %s' % (test_path+'/QueryOptimizer/data'))
-#                os.symlink(ol_data_path+'/data',test_path+'/QueryOptimizer/data')
-#            else:
-#                res = maketestlink(ol_data_path,test_path+'/QueryOptimizer',newdatapath)
-#                if (res != 0):
-#                    set_status(3)
-#                    return 4
-#                if ";" in newdatapath and newdataip!='' and newdatauser!='' and newdatapassw!='':
-#                    scpres = scpnewdata(test_path+'/QueryOptimizer',newdataip,newdatauser,newdatapassw,newdatapath)
-#                else:
-#                    scpres = 1
-#                    update_errorlog("[%s] %s\n" % (get_now_time(), "test new data configure is wrong"))
-#                if (scpres != 0):
-#                    set_status(3)
-#                    return 4
-#        except Exception as e:
-#            update_errorlog("[%s] %s\n" % (get_now_time(), e))
-#            set_status(3)
-#            return -1
-#        update_errorlog("[%s] %s\n" % (get_now_time(), "test start try to make link with ol_data on test ok"))
-#
-#
-#
-#        ### scp new conf to test env
-#        try:
-#            update_errorlog("[%s] %s\n" % (get_now_time(), "test start to cp cfg to test"))
-#            if newconfpath == '': 
-#                loginfo.log_info('use cfg online')
-#                ret = cp_new_conf(ol_conf_path,test_path)
-#            elif newconfip!='' and newconfuser!='' and newconfpassw!='':
-#                ret = scp_new_conf(test_path,newconfip,newconfuser,newconfpassw,newconfpath)
-#            else:
-#                ret = 1
-#                update_errorlog("[%s] %s\n" % (get_now_time(), "test new conf configure is wrong"))
-#        except Exception, e:
-#            update_errorlog("[%s] %s\n" % (get_now_time(), e))
-#            set_status(3)
-#            return -1
-#
-#        if (ret != 0):
-#            set_status(3)
-#            return 4
-#        update_errorlog("[%s] %s\n" % (get_now_time(), "test start to cp ol_data and ol_dev_conf ok"))
-#        
-#
-#
-#        ### cp start.sh to env
-#        try:
-#            update_errorlog("[%s] %s\n" % (get_now_time(), "test start to cp start.sh to test env"))
-#            ret = cp_start_sc(test_path)
-#        except Exception, e:
-#            update_errorlog("[%s] %s\n" % (get_now_time(), e))
-#            set_status(3)
-#            return -1
-#
-#        if (ret != 0):
-#            set_status(3)
-#            return 4
-#        update_errorlog("[%s] %s\n" % (get_now_time(), "test  cp start.sh to test env ok")) 
+        ### check code
+        try:
+            update_errorlog("[%s] %s\n" % (get_now_time(), "test start try check code"))
+            ret = checkcode_env(test_path, testsvn)
+        except Exception as e:
+            update_errorlog("[%s] %s\n" % (get_now_time(), e))
+            set_status(3)
+            return -1
+
+        if (ret != 0):
+            set_status(3)
+            return 4
+        update_errorlog("[%s] %s\n" % (get_now_time(), "test check code ok"))
+                
+        ### make
+        try:
+            update_errorlog("[%s] %s\n" % (get_now_time(), "test start try make"))
+            ret = make_env(test_path)
+        except Exception as e:
+            update_errorlog("[%s] %s\n" % (get_now_time(), e))
+            set_status(3)
+            return -1
+
+        if (ret != 0):
+            set_status(3)
+            return 4
+        update_errorlog("[%s] %s\n" % (get_now_time(), "test make ok"))
+        
+        
+        ### make test data link and scp new data to test env
+        try:
+            update_errorlog("[%s] %s\n" % (get_now_time(), "test start try to make link with ol_data on test"))
+            if newdatapath == '':
+                if(os.path.exists(test_path+'/QueryOptimizer/data')):
+                    loginfo.log_info('test_path_data_dir is exist')
+                    os.popen('rm -rf %s' % (test_path+'/QueryOptimizer/data'))
+                os.symlink(ol_data_path+'/data',test_path+'/QueryOptimizer/data')
+            else:
+                res = maketestlink(ol_data_path,test_path+'/QueryOptimizer',newdatapath)
+                if (res != 0):
+                    set_status(3)
+                    return 4
+                if ";" in newdatapath and newdataip!='' and newdatauser!='' and newdatapassw!='':
+                    scpres = scpnewdata(test_path+'/QueryOptimizer',newdataip,newdatauser,newdatapassw,newdatapath)
+                else:
+                    scpres = 1
+                    update_errorlog("[%s] %s\n" % (get_now_time(), "test new data configure is wrong"))
+                if (scpres != 0):
+                    set_status(3)
+                    return 4
+        except Exception as e:
+            update_errorlog("[%s] %s\n" % (get_now_time(), e))
+            set_status(3)
+            return -1
+        update_errorlog("[%s] %s\n" % (get_now_time(), "test start try to make link with ol_data on test ok"))
+
+
+
+        ### scp new conf to test env
+        try:
+            update_errorlog("[%s] %s\n" % (get_now_time(), "test start to ctrl cfg "))
+            if newconfpath == '': 
+                loginfo.log_info('use cfg online')
+                ret = cp_new_conf(ol_conf_path,test_path)
+            elif newconfip!='' and newconfuser!='' and newconfpassw!='':
+                loginfo.log_info('use rd cfg')
+                ret = scp_new_conf(test_path,newconfip,newconfuser,newconfpassw,newconfpath)
+            else:
+                ret = 1
+                update_errorlog("[%s] %s\n" % (get_now_time(), "test new conf configure is wrong"))
+        except Exception, e:
+            update_errorlog("[%s] %s\n" % (get_now_time(), e))
+            set_status(3)
+            return -1
+
+        if (ret != 0):
+            set_status(3)
+            return 4
+        update_errorlog("[%s] %s\n" % (get_now_time(), "test start to cp ol_data and ol_dev_conf ok"))
+        
+
+
+        ### cp start.sh to env
+        try:
+            update_errorlog("[%s] %s\n" % (get_now_time(), "test start to cp start.sh to test env"))
+            ret = cp_start_sc(test_path)
+        except Exception, e:
+            update_errorlog("[%s] %s\n" % (get_now_time(), e))
+            set_status(3)
+            return -1
+
+        if (ret != 0):
+            set_status(3)
+            return 4
+        update_errorlog("[%s] %s\n" % (get_now_time(), "test  cp start.sh to test env ok")) 
 
 
         
-        ### start perform
-        if (testitem == 1):#need to run performance
-            try:
-                ret = run_performace(test_path, "cost_test")
-                if (ret != 0):
-                    set_status(3)
-                    return -1
-            except Exception as e:
-                update_errorlog("[%s] %s\n" % (get_now_time(), e))
-                set_status(3)
-                return -1
-            if (ret != 0):
-                set_status(3)
-                return 5
+#        ### start perform
+#        if (testitem == 1):#need to run performance
+#            try:
+#                ret = run_performace(test_path, "cost_test")
+#                if (ret != 0):
+#                    set_status(3)
+#                    return -1
+#            except Exception as e:
+#                update_errorlog("[%s] %s\n" % (get_now_time(), e))
+#                set_status(3)
+#                return -1
+#            if (ret != 0):
+#                set_status(3)
+#                return 5
 
 
 ###### just run base
@@ -904,6 +910,22 @@ def main():
             return 4
         update_errorlog("[%s] %s\n" % (get_now_time(), "cp start.sh to base env ok")) 
 
+    if testsvn.strip() !="":
+        ### start perform
+        if (testitem == 1):#need to run performance
+            try:
+                ret = run_performace(test_path, "cost_test")
+                if (ret != 0):
+                    set_status(3)
+                    return -1
+            except Exception as e:
+                update_errorlog("[%s] %s\n" % (get_now_time(), e))
+                set_status(3)
+                return -1
+            if (ret != 0):
+                set_status(3)
+                return 5
+    if basesvn.strip() !="":
         ### start perform
         if (testitem == 1):#need to run performance
             try:
@@ -940,5 +962,3 @@ signal.signal(15, sig_handler)
 
 if __name__ == '__main__':
     main()
-    #sync_ol_conf_to_local(sys.argv[2])
-    #test()
