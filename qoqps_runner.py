@@ -516,7 +516,7 @@ def performance_once(file_path, performance_result, cost_type):
     if cost_type == 'cost_test':
         (ret, tools_pid) = sggp_lanch(sggp_path, "start_qo_test.sh", log)
     else:
-        (ret, tools_pid) = sggp_lanch(sggp_path, "start_qo_online.sh", log)
+        (ret, tools_pid) = sggp_lanch(sggp_path, "start_qo_base.sh", log)
     print ret,tools_pid
     if (ret < 0):
         time.sleep(0.5)
