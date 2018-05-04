@@ -496,7 +496,7 @@ def performance_once(file_path, performance_result, cost_type):
 
     log = []
     # start lt-queryoptimiz
-    update_errorlog("[%s] Begin Start webqo\n" % get_now_time())
+    update_errorlog("[%s] Begin Start %s webqo\n" % (get_now_time(),cost_type))
     (ret, cache_pid) = lanch(file_path + "/QueryOptimizer", "start.sh", 8012, log)
     if (ret < 0):
         time.sleep(0.5)
@@ -508,7 +508,7 @@ def performance_once(file_path, performance_result, cost_type):
             up_log += line +'\n'
         update_errorlog(up_log.decode('gbk').encode('utf-8').replace("'", "\\'"))
         return -1
-    update_errorlog("[%s] webqo Start OK, cost %d s\n" % (get_now_time(), ret))
+    update_errorlog("[%s] %s webqo Start OK, cost %d s\n" % (get_now_time(), cost_type, ret))
 
     # Start PressTool
     log = []
@@ -539,7 +539,7 @@ def performance_once(file_path, performance_result, cost_type):
 
     # Stop webqo
     stop_proc(cache_pid)
-    update_errorlog("[%s] webqo stoped\n" % get_now_time())
+    update_errorlog("[%s] %s webqo stoped\n" % (get_now_time(),cost_type))
 
     return get_performance(file_path + '/QueryOptimizer/err.log', performance_result)
 
@@ -911,8 +911,8 @@ def main():
         update_errorlog("[%s] %s\n" % (get_now_time(), "cp start.sh to base env ok")) 
 
     if testsvn.strip() !="":
-        ### start perform
-        if (testitem == 1):#need to run performance
+        ### start test perform
+        if (testitem == 1):
             try:
                 ret = run_performace(test_path, "cost_test")
                 if (ret != 0):
@@ -926,8 +926,8 @@ def main():
                 set_status(3)
                 return 5
     if basesvn.strip() !="":
-        ### start perform
-        if (testitem == 1):#need to run performance
+        ### start base perform
+        if (testitem == 1):
             try:
                 ret = run_performace(base_path, "cost_base")
                 if (ret != 0):
