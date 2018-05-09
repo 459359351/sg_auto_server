@@ -497,6 +497,8 @@ def performance_once(file_path, performance_result, cost_type):
     update_errorlog("[%s] Begin Start %s webqo\n" % (get_now_time(),cost_type))
     (ret, cache_pid) = lanch(file_path + "/QueryOptimizer", "start.sh", 8012, log)
     if (ret < 0):
+        bakfile = runlogbak+cost_type+'_starterr_'+str(mission_id)
+        os.popen("cp %s %s" % (log_file+'/QueryOptimizer/err.log', bakfile))
         time.sleep(0.5)
         up_log = ""
         for line in log:
