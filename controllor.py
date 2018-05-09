@@ -3,7 +3,7 @@
 import subprocess
 import pymysql
 import time
-import logUtils
+from lib import logUtils
 from conf import *
 
 

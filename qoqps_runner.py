@@ -486,7 +486,6 @@ def set_content_to_x(content, cost_type):
 def performance_once(file_path, performance_result, cost_type):
     asycmd = asycommands.TrAsyCommands(timeout=120)
     asycmd_list.append(asycmd)
-
     # kill lt-queryoptimiz
     for iotype, line in asycmd.execute_with_data(['ps -ef|grep lt-queryoptimiz|grep -v grep'], shell=True):
         if (line.find('lt-queryoptimiz') != -1):
@@ -540,17 +539,19 @@ def performance_once(file_path, performance_result, cost_type):
     stop_proc(cache_pid)
     update_errorlog("[%s] %s webqo stoped\n" % (get_now_time(),cost_type))
 
-    return get_performance(file_path + '/QueryOptimizer/err.log', performance_result)
+    return get_performance(file_path + '/QueryOptimizer/err.log', performance_result,cost_type)
 
-def get_performance(log_file, performance):
-    update_errorlog("[%s] start to get performance result\n" % get_now_time())
+def get_performance(log_file, performance,cost_type):
+    update_errorlog("[%s] start to get performance result %s \n" % (get_now_time(),log_file))
+    bakfile = runlogbak+cost_type+'_err_'+str(mission_id)
+    os.popen("cp %s %s" % (log_file, bakfile))
     if (os.path.exists(log_file) is False):
         performance.append(log_file + " is not exists")
         return -1
 
     asycmd = asycommands.TrAsyCommands(timeout=240)
     asycmd_list.append(asycmd)
-    for iotype, line in asycmd.execute_with_data(['python', cost_tool, log_file], shell=False):
+    for iotype, line in asycmd.execute_with_data(['python2', cost_tool, log_file], shell=False):
         performance.append(line)
     if (asycmd.return_code() != 0):
         return asycmd.return_code()
@@ -715,8 +716,7 @@ def main():
         return -1
 
 
-
-#### just run test
+##### just run test
     if testsvn.strip() !="":        
         update_errorlog("[%s] %s\n" % (get_now_time(), "try start test"))
         update_errorlog("[%s] %s\n" % (get_now_time(), "start try build test enviroment"))
@@ -818,22 +818,6 @@ def main():
         update_errorlog("[%s] %s\n" % (get_now_time(), "test  cp start.sh to test env ok")) 
 
 
-        
-#        ### start perform
-#        if (testitem == 1):#need to run performance
-#            try:
-#                ret = run_performace(test_path, "cost_test")
-#                if (ret != 0):
-#                    set_status(3)
-#                    return -1
-#            except Exception as e:
-#                update_errorlog("[%s] %s\n" % (get_now_time(), e))
-#                set_status(3)
-#                return -1
-#            if (ret != 0):
-#                set_status(3)
-#                return 5
-
 
 ###### just run base
     if basesvn.strip() !="":
@@ -909,8 +893,10 @@ def main():
             return 4
         update_errorlog("[%s] %s\n" % (get_now_time(), "cp start.sh to base env ok")) 
 
+
     if testsvn.strip() !="":
         ### start test perform
+        print 111111111111111111
         if (testitem == 1):
             try:
                 ret = run_performace(test_path, "cost_test")
