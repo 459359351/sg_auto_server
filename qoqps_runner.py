@@ -375,8 +375,16 @@ def scp_new_conf(file_path,newconfip,newconfuser,newconfpassw,newconfpath):
     return 0
 
 
-def get_proc_status(pid):
+def get_proc_status(pid,file_path,cost_type):
     try:
+        for fname in os.listdir(file_path+'/QueryOptimizer'):
+            if 'core' in fname:
+                corefile = runlogbak+cost_type+'_startcore_'+str(mission_id)
+                os.popen("cp %s %s" % (file_path+'/QueryOptimizer/core.*', corefile))
+                bakfile = runlogbak+cost_type+'_starterr_'+str(mission_id)
+                os.popen("cp %s %s" % (file_path+'/QueryOptimizer/err.log', bakfile))
+                update_errorlog("[%s] service core,core file path %s \n" % (get_now_time(),local_ip+runlogbak))
+                return -1
         p = psutil.Process(pid)
     except:
         return -1
@@ -388,8 +396,8 @@ def get_proc_status(pid):
 
 
 
-def wait_to_die(pid, interval):
-    while get_proc_status(pid) is not -1:
+def wait_to_die(pid, interval,file_path,cost_type):
+    while get_proc_status(pid,file_path,cost_type) is not -1:
 #        print("[%s] proc_status: %s" %(get_now_time(), get_proc_status(pid)))
         time.sleep(interval)
 #        print("[%s] sleep_interval: %s" %(get_now_time(), interval))
@@ -495,10 +503,16 @@ def performance_once(file_path, performance_result, cost_type):
     log = []
     # start lt-queryoptimiz
     update_errorlog("[%s] Begin Start %s webqo\n" % (get_now_time(),cost_type))
-    (ret, cache_pid) = lanch(file_path + "/QueryOptimizer", "start.sh", 8012, log)
+    (ret, service_pid) = lanch(file_path + "/QueryOptimizer", "start.sh", 8012, log)
     if (ret < 0):
         bakfile = runlogbak+cost_type+'_starterr_'+str(mission_id)
-        os.popen("cp %s %s" % (log_file+'/QueryOptimizer/err.log', bakfile))
+        os.popen("cp %s %s" % (file_path+'/QueryOptimizer/err.log', bakfile))
+        update_errorlog("[%s] %s webqo Start error, errlog path %s s\n" % (get_now_time(), cost_type, local_ip+runlogbak))
+        for fname in os.listdir(file_path+'/QueryOptimizer'):
+            if 'core' in fname:
+                corefile = runlogbak+cost_type+'_startcore_'+str(mission_id)
+                os.popen("cp %s %s" % (file_path+'/QueryOptimizer/core.*', corefile))
+                update_errorlog("[%s] %s webqo Start core, core file path %s s\n" % (get_now_time(), cost_type, local_ip+runlogbak))
         time.sleep(0.5)
         up_log = ""
         for line in log:
@@ -534,11 +548,11 @@ def performance_once(file_path, performance_result, cost_type):
 
     # Wait PressTool Stop
     for subpid in tools_pid:
-        wait_to_die(subpid, 5*30)
+        wait_to_die(subpid, 5*30,file_path,cost_type)
     update_errorlog("[%s] PressTool stoped\n" % get_now_time())
 
     # Stop webqo
-    stop_proc(cache_pid)
+    stop_proc(service_pid)
     update_errorlog("[%s] %s webqo stoped\n" % (get_now_time(),cost_type))
 
     return get_performance(file_path + '/QueryOptimizer/err.log', performance_result,cost_type)
