@@ -375,14 +375,15 @@ def scp_new_conf(file_path,newconfip,newconfuser,newconfpassw,newconfpath):
 
 def get_proc_status(pid,file_path,cost_type):
     try:
-        for fname in os.listdir(file_path+'/QueryOptimizer'):
-            if 'core' in fname:
-                corefile = runlogbak+cost_type+'_startcore_'+str(mission_id)
-                os.popen("cp %s %s" % (file_path+'/QueryOptimizer/core.*', corefile))
-                bakfile = runlogbak+cost_type+'_starterr_'+str(mission_id)
-                os.popen("cp %s %s" % (file_path+'/QueryOptimizer/err.log', bakfile))
-                update_errorlog("[%s] service core,core file path %s \n" % (get_now_time(),local_ip+runlogbak))
-                return -1
+        if file_path !="" and cost_type !="":
+            for fname in os.listdir(file_path+'/QueryOptimizer'):
+                if 'core' in fname:
+                    corefile = runlogbak+cost_type+'_startcore_'+str(mission_id)
+                    os.popen("cp %s %s" % (file_path+'/QueryOptimizer/core.*', corefile))
+                    bakfile = runlogbak+cost_type+'_starterr_'+str(mission_id)
+                    os.popen("cp %s %s" % (file_path+'/QueryOptimizer/err.log', bakfile))
+                    update_errorlog("[%s] service core,core file path %s \n" % (get_now_time(),local_ip+runlogbak))
+                    return -1
         p = psutil.Process(pid)
     except:
         return -1
@@ -394,7 +395,7 @@ def get_proc_status(pid,file_path,cost_type):
 
 
 
-def wait_to_die(pid, interval,file_path,cost_type):
+def wait_to_die(pid, interval,file_path="",cost_type=""):
     while get_proc_status(pid,file_path,cost_type) is not -1:
 #        print("[%s] proc_status: %s" %(get_now_time(), get_proc_status(pid)))
         time.sleep(interval)
@@ -501,7 +502,7 @@ def performance_once(file_path, performance_result, cost_type):
     log = []
     # start lt-queryoptimiz
     update_errorlog("[%s] Begin Start %s webqw\n" % (get_now_time(),cost_type))
-    (ret, service_pid) = lanch(file_path + "/QueryOptimizer", "start.sh", 8012, log)
+    (ret, service_pid) = lanch(file_path + "/QueryOptimizer", "start.sh", 8019, log)
     if (ret < 0):
         bakfile = runlogbak+cost_type+'_starterr_'+str(mission_id)
         os.popen("cp %s %s" % (file_path+'/QueryOptimizer/err.log', bakfile))
