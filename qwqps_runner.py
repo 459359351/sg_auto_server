@@ -7,7 +7,7 @@ import pymysql
 import time
 import subprocess
 
-from qoconf import *
+from qwconf import *
 from lib import logUtils
 from lib import confhelper
 from lib import asycommands
@@ -274,8 +274,6 @@ def scpnewdata(file_path,host_ip,username,password,newdata_path):
         arg2 = file_path+'/data/'
         stdlog = ""
         errlog = ""
-        #arg = 'rsync.webqo01.web.1.djt.ted::search/odin/daemon/qo/data/'
-        #arg2 = '/search/summary_o/webqo/data/'
         asycmd = asycommands.TrAsyCommands(timeout=30*300)
         for iotype, line in asycmd.execute_with_data(['rsync', '-ravl', arg, arg2], shell=False):
             if (iotype is 1):
@@ -330,11 +328,11 @@ def scpnewdata(file_path,host_ip,username,password,newdata_path):
 def cp_new_conf(tmp_conf_path, test_env_path):
     ### cp ol_dev_conf to test env
     update_errorlog("[%s] use cfg online ,cp it from tmp_conf_path\n" % get_now_time())
-    if os.path.exists(test_env_path + "/QueryOptimizer/qo.cfg"):
+    if os.path.exists(test_env_path + "/QueryOptimizer/qw.cfg"):
         update_errorlog("[%s] %s\n" % (get_now_time(), "cfg  exists, del it"))
-        os.popen("rm -rf " + test_env_path + "/QueryOptimizer/qo.cfg")
+        os.popen("rm -rf " + test_env_path + "/QueryOptimizer/qw.cfg")
 
-    os.popen("cp %s/qo.cfg %s/QueryOptimizer/" % (tmp_conf_path, test_env_path))
+    os.popen("cp %s/qw.cfg %s/QueryOptimizer/" % (tmp_conf_path, test_env_path))
     update_errorlog("[%s] cp cfg from tmp_conf_path success\n" % get_now_time())
 
     return 0
@@ -350,10 +348,10 @@ def cp_start_sc(file_path):
 
 
 def scp_new_conf(file_path,newconfip,newconfuser,newconfpassw,newconfpath):
-    update_errorlog("[%s] try scp rd qo.cfg to test enviroment\n" % get_now_time())
-    if os.path.exists(file_path + "/QueryOptimizer/qo.cfg"):
+    update_errorlog("[%s] try scp rd qw.cfg to test enviroment\n" % get_now_time())
+    if os.path.exists(file_path + "/QueryOptimizer/qw.cfg"):
         update_errorlog("[%s] %s\n" % (get_now_time(), "cfg  exists, del it"))
-        os.popen("rm -rf " + file_path + "/QueryOptimizer/qo.cfg")
+        os.popen("rm -rf " + file_path + "/QueryOptimizer/qw.cfg")
 
     passwd_key = '.*assword.*'
 
@@ -370,8 +368,8 @@ def scp_new_conf(file_path,newconfip,newconfuser,newconfpassw,newconfpath):
         child.expect(pexpect.EOF)
 
     except Exception as e:
-        update_errorlog("[%s] %s, scp rd qo.cfg failed \n" % (get_now_time(), e))
-    update_errorlog("[%s] try scp rd qo.cfg to test enviroment success\n" % get_now_time())
+        update_errorlog("[%s] %s, scp rd qw.cfg failed \n" % (get_now_time(), e))
+    update_errorlog("[%s] try scp rd qw.cfg to test enviroment success\n" % get_now_time())
     return 0
 
 
@@ -406,7 +404,7 @@ def stop_proc(pid):
 def lanch(file_path, start_script, port, log):
 # rules: start_script must put pid in `PID` file: echo $! > PID
 # return a tuple(retcode, pid)
-#lanch(sggp_path, "start_qo_group.sh", -1, log)
+#lanch(sggp_path, "start_qw_group.sh", -1, log)
     pid = -1
     asycmd = asycommands.TrAsyCommands(timeout=30)
     asycmd_list.append(asycmd)
@@ -494,7 +492,7 @@ def performance_once(file_path, performance_result, cost_type):
 
     log = []
     # start lt-queryoptimiz
-    update_errorlog("[%s] Begin Start %s webqo\n" % (get_now_time(),cost_type))
+    update_errorlog("[%s] Begin Start %s webqw\n" % (get_now_time(),cost_type))
     (ret, cache_pid) = lanch(file_path + "/QueryOptimizer", "start.sh", 8012, log)
     if (ret < 0):
         time.sleep(0.5)
@@ -506,15 +504,15 @@ def performance_once(file_path, performance_result, cost_type):
             up_log += line +'\n'
         update_errorlog(up_log.decode('gbk').encode('utf-8').replace("'", "\\'"))
         return -1
-    update_errorlog("[%s] %s webqo Start OK, cost %d s\n" % (get_now_time(), cost_type, ret))
+    update_errorlog("[%s] %s webqw Start OK, cost %d s\n" % (get_now_time(), cost_type, ret))
 
     # Start PressTool
     log = []
     update_errorlog("[%s] Begin start PressTool\n" % get_now_time())
     if cost_type == 'cost_test':
-        (ret, tools_pid) = sggp_lanch(sggp_path, "start_qo_test.sh", log)
+        (ret, tools_pid) = sggp_lanch(sggp_path, "start_qw_test.sh", log)
     else:
-        (ret, tools_pid) = sggp_lanch(sggp_path, "start_qo_base.sh", log)
+        (ret, tools_pid) = sggp_lanch(sggp_path, "start_qw_base.sh", log)
     print ret,tools_pid
     if (ret < 0):
         time.sleep(0.5)
@@ -535,9 +533,9 @@ def performance_once(file_path, performance_result, cost_type):
         wait_to_die(subpid, 5*30)
     update_errorlog("[%s] PressTool stoped\n" % get_now_time())
 
-    # Stop webqo
+    # Stop webqw
     stop_proc(cache_pid)
-    update_errorlog("[%s] %s webqo stoped\n" % (get_now_time(),cost_type))
+    update_errorlog("[%s] %s webqw stoped\n" % (get_now_time(),cost_type))
 
     return get_performance(file_path + '/QueryOptimizer/err.log', performance_result,cost_type)
 
@@ -560,7 +558,7 @@ def get_performance(log_file, performance,cost_type):
 def sggp_lanch(file_path, start_script, log):
 # rules: start_script must put pid in `PID` file: echo $! > PID
 # return a tuple(retcode, pid)
-#lanch(sggp_path, "start_qo_group.sh", -1, log)
+#lanch(sggp_path, "start_qw_group.sh", -1, log)
     pid = list()
     asycmd = asycommands.TrAsyCommands(timeout=30)
     asycmd_list.append(asycmd)
@@ -604,28 +602,28 @@ def configure_sggp_test(sggp_path,qps,time,press_expid,press_rate):
         qps = 1000
     if time == '' or time > 30:
         time = 15
-    cfg_expall = confhelper.ConfReader(sggp_path+'/web_qo_expall.ini')
-    cfg_expall.setValue('web_qo_exp','press_qps',qps)
-    cfg_expall.setValue('web_qo_exp','press_time',time)
+    cfg_expall = confhelper.ConfReader(sggp_path+'/web_qw_expall.ini')
+    cfg_expall.setValue('web_qw_exp','press_qps',qps)
+    cfg_expall.setValue('web_qw_exp','press_time',time)
     
-    cfg_online = confhelper.ConfReader(sggp_path+'/web_qo_online.ini')
-    cfg_online.setValue('web_qo','press_qps',qps)
-    cfg_online.setValue('web_qo','press_time',time)
+    cfg_online = confhelper.ConfReader(sggp_path+'/web_qw_online.ini')
+    cfg_online.setValue('web_qw','press_qps',qps)
+    cfg_online.setValue('web_qw','press_time',time)
 
-    if(os.path.exists(sggp_path+'/start_qo_test.sh')):
-        print 'start_qo_test is exist,del it'
-        update_errorlog("[%s] start_qo_test is exist,del it\n" % get_now_time())
-        os.popen('rm -rf %s' % (sggp_path+'/start_qo_test.sh'))
+    if(os.path.exists(sggp_path+'/start_qw_test.sh')):
+        print 'start_qw_test is exist,del it'
+        update_errorlog("[%s] start_qw_test is exist,del it\n" % get_now_time())
+        os.popen('rm -rf %s' % (sggp_path+'/start_qw_test.sh'))
     if press_expid != 0 and press_rate > 0:
         print sggp_path,qps,press_expid,press_rate
         expid= hex(press_expid)[2:]+'^0^0^0^0^0^0^0^0'
-        commandline = 'echo '+expid+' | /search/odin/daemon/webqo/tools/sggp/data/Encode -f utf8 -t utf16'
+        commandline = 'echo '+expid+' | /search/odin/daemon/webqw/tools/sggp/data/Encode -f utf8 -t utf16'
         asycmd = asycommands.TrAsyCommands(timeout=240)
         asycmd_list.append(asycmd)
         for iotype, line in asycmd.execute_with_data([commandline], shell=True):
             exp_id = "exp_id="+line
-        base_query=sggp_query_path+'query_qo_base'
-        command = '''awk '{print "'''+exp_id+""""$0}' """ +base_query+">"+sggp_query_path+"query_qo_expid"
+        base_query=sggp_query_path+'query_qw_base'
+        command = '''awk '{print "'''+exp_id+""""$0}' """ +base_query+">"+sggp_query_path+"query_qw_expid"
         try:
             child = subprocess.Popen(command, shell = True, stdout = subprocess.PIPE, stderr = subprocess.PIPE)
             child.communicate(input=None)
@@ -633,18 +631,18 @@ def configure_sggp_test(sggp_path,qps,time,press_expid,press_rate):
         except Exception as e:
             update_errorlog("[%s] create expid query wrong ,except:%s\n" % (get_now_time(), e))
         if press_rate < 100:
-            qo_expid_qps=qps*press_rate/100
-            qo_qps = 1000-qo_expid_qps
-            cfg=confhelper.ConfReader(sggp_path+'/web_qo_group.ini')
-            cfg.setValue('web_qo_exp','press_qps',int(qo_expid_qps))
-            cfg.setValue('web_qo','press_qps',int(qo_qps))
-            cfg.setValue('web_qo_exp','press_time',time)
-            cfg.setValue('web_qo','press_time',time)
-            os.symlink(sggp_path+'/start_qo_group.sh',sggp_path+'/start_qo_test.sh')
+            qw_expid_qps=qps*press_rate/100
+            qw_qps = 1000-qw_expid_qps
+            cfg=confhelper.ConfReader(sggp_path+'/web_qw_group.ini')
+            cfg.setValue('web_qw_exp','press_qps',int(qw_expid_qps))
+            cfg.setValue('web_qw','press_qps',int(qw_qps))
+            cfg.setValue('web_qw_exp','press_time',time)
+            cfg.setValue('web_qw','press_time',time)
+            os.symlink(sggp_path+'/start_qw_group.sh',sggp_path+'/start_qw_test.sh')
         elif press_rate == 100:
-            os.symlink(sggp_path+'/start_qo_expall.sh',sggp_path+'/start_qo_test.sh')
+            os.symlink(sggp_path+'/start_qw_expall.sh',sggp_path+'/start_qw_test.sh')
     else:
-        os.symlink(sggp_path+'/start_qo_online.sh',sggp_path+'/start_qo_test.sh')
+        os.symlink(sggp_path+'/start_qw_online.sh',sggp_path+'/start_qw_test.sh')
     return 0    
 
 
