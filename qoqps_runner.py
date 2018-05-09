@@ -7,7 +7,7 @@ import pymysql
 import time
 import subprocess
 
-from conf import *
+from qoconf import *
 from lib import logUtils
 from lib import confhelper
 from lib import asycommands
