@@ -620,7 +620,7 @@ def configure_sggp_test(sggp_path,qps,time,press_expid,press_rate):
     if qps == '':
         qps = 1000
     if time == '' or time > 30:
-        time = 15
+        time = 30
     cfg_expall = confhelper.ConfReader(sggp_path+'/web_qo_expall.ini')
     cfg_expall.setValue('web_qo_exp','press_qps',qps)
     cfg_expall.setValue('web_qo_exp','press_time',time)
