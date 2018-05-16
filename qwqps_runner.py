@@ -618,7 +618,7 @@ def configure_sggp_test(sggp_path,qps,time,press_expid,press_rate):
     if qps == '':
         qps = 1000
     if time == '' or time > 30:
-        time = 15
+        time = 30
     thread_size = int(qps/2)
     cfg_expall = confhelper.ConfReader(sggp_path+'/web_qw_expall.ini')
     cfg_expall.setValue('web_qw_exp','press_qps',qps)
