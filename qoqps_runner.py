@@ -500,17 +500,23 @@ def performance_once(file_path, performance_result, cost_type):
     # clean Mem
     sync_cmd = subprocess.Popen(['sync'], shell=False, cwd = file_path, stdout = subprocess.PIPE,stderr = subprocess.PIPE)
     sync_cmd.wait()
-    if (sync_cmd.returncode != 0):
+    if (sync_cmd.returncode == 0):
+        update_errorlog("[%s] %s sync success \n" % (get_now_time(), cost_type))
+    else:
         update_errorlog("[%s] %s sync error \n" % (get_now_time(), cost_type))
 
     echo_three_cmd = subprocess.Popen(['echo 3 > /proc/sys/vm/drop_caches'], shell=True, stdout = subprocess.PIPE,stderr = subprocess.PIPE)
     echo_three_cmd.wait()
-    if (sync_cmd.returncode != 0):
+    if (sync_cmd.returncode == 0):
+        update_errorlog("[%s] %s free mem success \n" % (get_now_time(), cost_type))
+    else:
         update_errorlog("[%s] %s free pagecache, dentries and inodes error \n" % (get_now_time(), cost_type))
 
     echo_one_cmd = subprocess.Popen(['echo 0 > /proc/sys/vm/drop_caches'], shell=True, stdout = subprocess.PIPE,stderr = subprocess.PIPE)
     echo_one_cmd.wait()
-    if (sync_cmd.returncode != 0):
+    if (sync_cmd.returncode == 0):
+        update_errorlog("[%s] %s reset success \n" % (get_now_time(), cost_type))
+    else:
         update_errorlog("[%s] %s reset free error \n" % (get_now_time(), cost_type))
 
     # kill lt-queryoptimiz
