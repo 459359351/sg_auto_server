@@ -619,7 +619,7 @@ def configure_sggp_test(sggp_path,qps,time,press_expid,press_rate):
         qps = 1000
     if time == '' or time > 30:
         time = 30
-    thread_size = int(qps/2)
+    thread_size = int(qps/4)
     cfg_expall = confhelper.ConfReader(sggp_path+'/web_qw_expall.ini')
     cfg_expall.setValue('web_qw_exp','press_qps',qps)
     cfg_expall.setValue('web_qw_exp','thread_size',thread_size)
@@ -655,7 +655,7 @@ def configure_sggp_test(sggp_path,qps,time,press_expid,press_rate):
             cfg.setValue('web_qw_exp','press_qps',int(qw_expid_qps))
             cfg.setValue('web_qw_exp','thread_size',int(qw_expid_qps))
             cfg.setValue('web_qw','press_qps',int(qw_qps))
-            cfg.setValue('web_qw','thread_size',int(qw_qps))
+            cfg.setValue('web_qw','thread_size',int(qw_qps/4))
             cfg.setValue('web_qw_exp','press_time',time)
             cfg.setValue('web_qw','press_time',time)
             os.symlink(sggp_path+'/start_qw_group.sh',sggp_path+'/start_qw_test.sh')
@@ -910,11 +910,11 @@ def main():
             return 4
         update_errorlog("[%s] %s\n" % (get_now_time(), "cp start.sh to base env ok")) 
 
-    if testsvn.strip() !="":
-        ### start test perform
+    if basesvn.strip() !="":
+        ### start base perform
         if (testitem == 1):
             try:
-                ret = run_performace(test_path, "cost_test")
+                ret = run_performace(base_path, "cost_base")
                 if (ret != 0):
                     set_status(3)
                     return -1
@@ -925,11 +925,12 @@ def main():
             if (ret != 0):
                 set_status(3)
                 return 5
-    if basesvn.strip() !="":
-        ### start base perform
+
+    if testsvn.strip() !="":
+        ### start test perform
         if (testitem == 1):
             try:
-                ret = run_performace(base_path, "cost_base")
+                ret = run_performace(test_path, "cost_test")
                 if (ret != 0):
                     set_status(3)
                     return -1
