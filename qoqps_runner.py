@@ -497,6 +497,13 @@ def set_content_to_x(content, cost_type):
 def performance_once(file_path, performance_result, cost_type):
     asycmd = asycommands.TrAsyCommands(timeout=120)
     asycmd_list.append(asycmd)
+
+    # kill lt-queryoptimiz
+    for iotype, line in asycmd.execute_with_data(['ps -ef|grep lt-queryoptimiz|grep -v grep'], shell=True):
+        if (line.find('lt-queryoptimiz') != -1):
+            pid = int(line.split()[1])
+            stop_proc(pid)
+
     # clean Mem
     sync_cmd = subprocess.Popen(['sync'], shell=False, cwd = file_path, stdout = subprocess.PIPE,stderr = subprocess.PIPE)
     sync_cmd.wait()
@@ -518,12 +525,6 @@ def performance_once(file_path, performance_result, cost_type):
         update_errorlog("[%s] %s reset success \n" % (get_now_time(), cost_type))
     else:
         update_errorlog("[%s] %s reset free error \n" % (get_now_time(), cost_type))
-
-    # kill lt-queryoptimiz
-    for iotype, line in asycmd.execute_with_data(['ps -ef|grep lt-queryoptimiz|grep -v grep'], shell=True):
-        if (line.find('lt-queryoptimiz') != -1):
-            pid = int(line.split()[1])
-            stop_proc(pid)
 
     log = []
     # start lt-queryoptimiz
