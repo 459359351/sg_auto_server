@@ -491,10 +491,28 @@ def set_content_to_x(content, cost_type):
     cursor.execute(sql)
     db.commit()
 
+    
+
 
 def performance_once(file_path, performance_result, cost_type):
     asycmd = asycommands.TrAsyCommands(timeout=120)
     asycmd_list.append(asycmd)
+    # clean Mem
+    sync_cmd = subprocess.Popen(['sync'], shell=False, cwd = file_path, stdout = subprocess.PIPE,stderr = subprocess.PIPE)
+    sync_cmd.wait()
+    if (sync_cmd.returncode != 0):
+        update_errorlog("[%s] %s sync error \n" % (get_now_time(), cost_type))
+
+    echo_three_cmd = subprocess.Popen(['echo 3 > /proc/sys/vm/drop_caches'], shell=True, stdout = subprocess.PIPE,stderr = subprocess.PIPE)
+    echo_three_cmd.wait()
+    if (sync_cmd.returncode != 0):
+        update_errorlog("[%s] %s free pagecache, dentries and inodes error \n" % (get_now_time(), cost_type))
+
+    echo_one_cmd = subprocess.Popen(['echo 0 > /proc/sys/vm/drop_caches'], shell=True, stdout = subprocess.PIPE,stderr = subprocess.PIPE)
+    echo_one_cmd.wait()
+    if (sync_cmd.returncode != 0):
+        update_errorlog("[%s] %s reset free error \n" % (get_now_time(), cost_type))
+
     # kill lt-queryoptimiz
     for iotype, line in asycmd.execute_with_data(['ps -ef|grep lt-queryoptimiz|grep -v grep'], shell=True):
         if (line.find('lt-queryoptimiz') != -1):
@@ -621,12 +639,15 @@ def configure_sggp_test(sggp_path,qps,time,press_expid,press_rate):
         qps = 1000
     if time == '' or time > 30:
         time = 30
+    thread_size = int(qps/4)
     cfg_expall = confhelper.ConfReader(sggp_path+'/web_qo_expall.ini')
     cfg_expall.setValue('web_qo_exp','press_qps',qps)
+    cfg_expall.setValue('web_qo_exp','thread_size',thread_size)
     cfg_expall.setValue('web_qo_exp','press_time',time)
     
     cfg_online = confhelper.ConfReader(sggp_path+'/web_qo_online.ini')
     cfg_online.setValue('web_qo','press_qps',qps)
+    cfg_online.setValue('web_qo','thread_size',thread_size)
     cfg_online.setValue('web_qo','press_time',time)
 
     if(os.path.exists(sggp_path+'/start_qo_test.sh')):
@@ -654,7 +675,9 @@ def configure_sggp_test(sggp_path,qps,time,press_expid,press_rate):
             qo_qps = 1000-qo_expid_qps
             cfg=confhelper.ConfReader(sggp_path+'/web_qo_group.ini')
             cfg.setValue('web_qo_exp','press_qps',int(qo_expid_qps))
+            cfg.setValue('web_qo_exp','thread_size',int(qo_expid_qps))
             cfg.setValue('web_qo','press_qps',int(qo_qps))
+            cfg.setValue('web_qo','thread_size',int(qo_qps/4))
             cfg.setValue('web_qo_exp','press_time',time)
             cfg.setValue('web_qo','press_time',time)
             os.symlink(sggp_path+'/start_qo_group.sh',sggp_path+'/start_qo_test.sh')
@@ -731,6 +754,9 @@ def main():
         update_errorlog("[%s] %s\n" % (get_now_time(), "sync_ol_conf_to_local has some error, pls check"))
         set_status(3)
         return -1
+
+    #testsvn=""
+    #basesvn=""
 
 
 ##### just run test
@@ -910,13 +936,11 @@ def main():
             return 4
         update_errorlog("[%s] %s\n" % (get_now_time(), "cp start.sh to base env ok")) 
 
-
-    if testsvn.strip() !="":
-        ### start test perform
-        print 111111111111111111
+    if basesvn.strip() !="":
+        ### start base perform
         if (testitem == 1):
             try:
-                ret = run_performace(test_path, "cost_test")
+                ret = run_performace(base_path, "cost_base")
                 if (ret != 0):
                     set_status(3)
                     return -1
@@ -927,11 +951,12 @@ def main():
             if (ret != 0):
                 set_status(3)
                 return 5
-    if basesvn.strip() !="":
-        ### start base perform
+    
+    if testsvn.strip() !="":
+        ### start test perform
         if (testitem == 1):
             try:
-                ret = run_performace(base_path, "cost_base")
+                ret = run_performace(test_path, "cost_test")
                 if (ret != 0):
                     set_status(3)
                     return -1
