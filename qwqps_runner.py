@@ -375,14 +375,15 @@ def scp_new_conf(file_path,newconfip,newconfuser,newconfpassw,newconfpath):
 
 def get_proc_status(pid,file_path,cost_type):
     try:
-        for fname in os.listdir(file_path+'/QueryOptimizer'):
-            if 'core' in fname:
-                corefile = runlogbak+cost_type+'_startcore_'+str(mission_id)
-                os.popen("cp %s %s" % (file_path+'/QueryOptimizer/core.*', corefile))
-                bakfile = runlogbak+cost_type+'_starterr_'+str(mission_id)
-                os.popen("cp %s %s" % (file_path+'/QueryOptimizer/err.log', bakfile))
-                update_errorlog("[%s] service core,core file path %s \n" % (get_now_time(),local_ip+runlogbak))
-                return -1
+        if file_path !="" and cost_type !="":
+            for fname in os.listdir(file_path+'/QueryOptimizer'):
+                if 'core' in fname:
+                    corefile = runlogbak+cost_type+'_startcore_'+str(mission_id)
+                    os.popen("cp %s %s" % (file_path+'/QueryOptimizer/core.*', corefile))
+                    bakfile = runlogbak+cost_type+'_starterr_'+str(mission_id)
+                    os.popen("cp %s %s" % (file_path+'/QueryOptimizer/err.log', bakfile))
+                    update_errorlog("[%s] service core,core file path %s \n" % (get_now_time(),local_ip+runlogbak))
+                    return -1
         p = psutil.Process(pid)
     except:
         return -1
@@ -394,7 +395,7 @@ def get_proc_status(pid,file_path,cost_type):
 
 
 
-def wait_to_die(pid, interval,file_path,cost_type):
+def wait_to_die(pid, interval,file_path="",cost_type=""):
     while get_proc_status(pid,file_path,cost_type) is not -1:
 #        print("[%s] proc_status: %s" %(get_now_time(), get_proc_status(pid)))
         time.sleep(interval)
@@ -501,7 +502,7 @@ def performance_once(file_path, performance_result, cost_type):
     log = []
     # start lt-queryoptimiz
     update_errorlog("[%s] Begin Start %s webqw\n" % (get_now_time(),cost_type))
-    (ret, service_pid) = lanch(file_path + "/QueryOptimizer", "start.sh", 8012, log)
+    (ret, service_pid) = lanch(file_path + "/QueryOptimizer", "start.sh", 8019, log)
     if (ret < 0):
         bakfile = runlogbak+cost_type+'_starterr_'+str(mission_id)
         os.popen("cp %s %s" % (file_path+'/QueryOptimizer/err.log', bakfile))
@@ -618,20 +619,21 @@ def configure_sggp_test(sggp_path,qps,time,press_expid,press_rate):
         qps = 1000
     if time == '' or time > 30:
         time = 15
+    thread_size = int(qps/2)
     cfg_expall = confhelper.ConfReader(sggp_path+'/web_qw_expall.ini')
     cfg_expall.setValue('web_qw_exp','press_qps',qps)
+    cfg_expall.setValue('web_qw_exp','thread_size',thread_size)
     cfg_expall.setValue('web_qw_exp','press_time',time)
     
     cfg_online = confhelper.ConfReader(sggp_path+'/web_qw_online.ini')
     cfg_online.setValue('web_qw','press_qps',qps)
+    cfg_online.setValue('web_qw','thread_size',thread_size)
     cfg_online.setValue('web_qw','press_time',time)
 
     if(os.path.exists(sggp_path+'/start_qw_test.sh')):
-        print 'start_qw_test is exist,del it'
         update_errorlog("[%s] start_qw_test is exist,del it\n" % get_now_time())
         os.popen('rm -rf %s' % (sggp_path+'/start_qw_test.sh'))
     if press_expid != 0 and press_rate > 0:
-        print sggp_path,qps,press_expid,press_rate
         expid= hex(press_expid)[2:]+'^0^0^0^0^0^0^0^0'
         commandline = 'echo '+expid+' | /search/odin/daemon/webqw/tools/sggp/data/Encode -f utf8 -t utf16'
         asycmd = asycommands.TrAsyCommands(timeout=240)
@@ -651,7 +653,9 @@ def configure_sggp_test(sggp_path,qps,time,press_expid,press_rate):
             qw_qps = 1000-qw_expid_qps
             cfg=confhelper.ConfReader(sggp_path+'/web_qw_group.ini')
             cfg.setValue('web_qw_exp','press_qps',int(qw_expid_qps))
+            cfg.setValue('web_qw_exp','thread_size',int(qw_expid_qps))
             cfg.setValue('web_qw','press_qps',int(qw_qps))
+            cfg.setValue('web_qw','thread_size',int(qw_qps))
             cfg.setValue('web_qw_exp','press_time',time)
             cfg.setValue('web_qw','press_time',time)
             os.symlink(sggp_path+'/start_qw_group.sh',sggp_path+'/start_qw_test.sh')
@@ -728,7 +732,6 @@ def main():
         update_errorlog("[%s] %s\n" % (get_now_time(), "sync_ol_conf_to_local has some error, pls check"))
         set_status(3)
         return -1
-
 
 ##### just run test
     if testsvn.strip() !="":        
@@ -907,10 +910,8 @@ def main():
             return 4
         update_errorlog("[%s] %s\n" % (get_now_time(), "cp start.sh to base env ok")) 
 
-
     if testsvn.strip() !="":
         ### start test perform
-        print 111111111111111111
         if (testitem == 1):
             try:
                 ret = run_performace(test_path, "cost_test")

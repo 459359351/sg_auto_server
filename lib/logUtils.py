@@ -5,7 +5,7 @@ from datetime import datetime
 class logutil():
     fname = ''
     def __init__(self,id):
-        self.fname=str(id)+'-'+datetime.now().strftime('%m%d%H%M%S')
+        self.fname=datetime.now().strftime('%m%d%H%M%S')+'-'+str(id)
         logging.basicConfig(
             level=logging.DEBUG,
             format='%(asctime)s : %(levelname)s  %(message)s',
