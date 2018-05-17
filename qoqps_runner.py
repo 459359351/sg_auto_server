@@ -548,7 +548,7 @@ def performance_once(file_path, performance_result, cost_type):
             up_log += line +'\n'
         update_errorlog(up_log.decode('gbk').encode('utf-8').replace("'", "\\'"))
         return -1
-    update_errorlog("[%s] %s webqo Start OK, cost %d s\n" % (get_now_time(), cost_type, ret))
+    update_errorlog("[%s] %s webqo Start OK, cost %d s, PID %s \n" % (get_now_time(), cost_type, ret, str(service_pid)))
 
     # Start PressTool
     log = []
@@ -569,7 +569,7 @@ def performance_once(file_path, performance_result, cost_type):
             up_log += line + '\n'
         update_errorlog(up_log.decode('gbk').encode('utf-8').replace("'", "\\'"))
         return -1
-    update_errorlog("[%s] PressTool Start OK\n" % get_now_time())
+    update_errorlog("[%s] PressTool Start OK ,PIDs %s \n" % (get_now_time(),str(tools_pid)))
     update_errorlog("[%s] Wait PressTool...\n" % get_now_time())
 
     # Wait PressTool Stop
