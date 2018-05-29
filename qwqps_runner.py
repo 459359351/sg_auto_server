@@ -677,7 +677,7 @@ def configure_sggp_test(sggp_path,qps,time,press_expid,press_rate):
             cfg.setValue('web_qw_exp','press_qps',int(qw_expid_qps))
             cfg.setValue('web_qw_exp','thread_size',int(qw_expid_qps))
             cfg.setValue('web_qw','press_qps',int(qw_qps))
-            cfg.setValue('web_qw','thread_size',int(qw_qps/4))
+            cfg.setValue('web_qw','thread_size',int(qw_qps/5))
             cfg.setValue('web_qw_exp','press_time',time)
             cfg.setValue('web_qw','press_time',time)
             os.symlink(sggp_path+'/start_qw_group.sh',sggp_path+'/start_qw_test.sh')
