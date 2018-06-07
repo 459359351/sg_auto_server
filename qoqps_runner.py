@@ -193,11 +193,13 @@ def checkcode_env(file_path, svn):
         pos = line.find('=')
         key = line[0:pos]
         value = line[pos+1:]
+        print('111',key,value)
         if (value.find('http://') != 0):
             update_errorlog("[%s] svn url format error: %s\n" % (get_now_time(), line))
             return -1
         key_path = os.path.join(file_path, key)
         url = ""
+        print(2222,mysvn.svn_info(key_path))
         if (mysvn.svn_info(key_path) != 0):
         #no path, then checkout
             ret = mysvn.svn_co(value, key_path)
@@ -593,7 +595,7 @@ def get_performance(log_file, performance,cost_type):
 
     asycmd = asycommands.TrAsyCommands(timeout=240)
     asycmd_list.append(asycmd)
-    for iotype, line in asycmd.execute_with_data(['python2', cost_tool, log_file], shell=False):
+    for iotype, line in asycmd.execute_with_data(['python3', cost_tool, log_file], shell=False):
         performance.append(line)
     if (asycmd.return_code() != 0):
         return asycmd.return_code()
@@ -738,11 +740,11 @@ def main():
 #        set_status(3)
 #        return -1
 
-    ret_configure_sggp_test = configure_sggp_test(sggp_path,press_qps,press_time,press_expid,press_rate)
-    if ret_configure_sggp_test != 0:
-        update_errorlog("[%s] %s\n" % (get_now_time(), "configure sggp_conf has some error, pls check"))
-        set_status(3)
-        return -1
+#    ret_configure_sggp_test = configure_sggp_test(sggp_path,press_qps,press_time,press_expid,press_rate)
+#    if ret_configure_sggp_test != 0:
+#        update_errorlog("[%s] %s\n" % (get_now_time(), "configure sggp_conf has some error, pls check"))
+#        set_status(3)
+#        return -1
     
 #    ret_sync_ol_data = sync_ol_data_to_local(ol_data_path+"/data")
 #    if ret_sync_ol_data != 0:

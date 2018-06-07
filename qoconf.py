@@ -29,7 +29,7 @@ ol_conf_path_1="tmp_conf"
 
 black_data_path="/search/odin/daemon/black_agent/data"
 
-cost_tool = os.path.join(root_path, "tools/cost_analysis.py")
+cost_tool = os.path.join(root_path, "tools/log_analysis.py")
 start_sc = os.path.join(root_path, "tools/start.sh")
 
 #press conf
