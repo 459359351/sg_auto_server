@@ -51,7 +51,6 @@ def analysis_ret(data_file):
 		  '%-20s\t%s' % ('Get ret rate:', retavgNum)+ '\n' +
 		  '%-20s\t%.4f' % ('None ret rate:', noretavgNum)+ '\n'+
 		  '%-20s\t%s' % ('Ret invalid line:',bad_line))
-	print('endret:',get_now_time())
 
 
 def analysis_cost(data_file):
@@ -125,14 +124,12 @@ def analysis_cost(data_file):
 			output += ('%-20s\t%-10s\t%f%%' % (keys, data_distribution[keys], (float(data_distribution[keys]) / costlen * 100)) + '\n')
 
 	print(output)
-	print('endcost:',get_now_time())
 
 
 def get_now_time():
 	return datetime.now().strftime('%m%d%H%M%S')
 
 if __name__ == '__main__':
-	print('start:',get_now_time())
 	if len(sys.argv) == 2:
 		log_file = sys.argv[1]
 		process_sub = []
