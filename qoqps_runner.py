@@ -740,11 +740,11 @@ def main():
 #        set_status(3)
 #        return -1
 
-#    ret_configure_sggp_test = configure_sggp_test(sggp_path,press_qps,press_time,press_expid,press_rate)
-#    if ret_configure_sggp_test != 0:
-#        update_errorlog("[%s] %s\n" % (get_now_time(), "configure sggp_conf has some error, pls check"))
-#        set_status(3)
-#        return -1
+    ret_configure_sggp_test = configure_sggp_test(sggp_path,press_qps,press_time,press_expid,press_rate)
+    if ret_configure_sggp_test != 0:
+        update_errorlog("[%s] %s\n" % (get_now_time(), "configure sggp_conf has some error, pls check"))
+        set_status(3)
+        return -1
     
 #    ret_sync_ol_data = sync_ol_data_to_local(ol_data_path+"/data")
 #    if ret_sync_ol_data != 0:
