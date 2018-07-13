@@ -7,7 +7,7 @@ class logutil():
     def __init__(self,id):
         self.fname=datetime.now().strftime('%m%d%H%M%S')+'-'+str(id)
         logging.basicConfig(
-            level=logging.DEBUG,
+            level=logging.INFO,
             format='%(asctime)s : %(levelname)s  %(message)s',
             datefmt='%Y-%m-%d %A %H:%M:%S',
             filename='log/log-'+self.fname,

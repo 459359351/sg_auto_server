@@ -13,7 +13,7 @@ from lib import confhelper
 from lib import asycommands
 from lib import svnpkg
 from lib import makelink
-
+from lib import getdiff
 import psutil
 import hashlib
 import signal
@@ -36,9 +36,7 @@ def get_now_time():
 
 def get_material():
 
-#newconfpath | newconfip | newconfpassw | newconfuser | newdataip | newdatapassw | newdatauser | newdatapath | newdata_topath
-
-    sql = "SELECT hubcfgip,hubcfguser,hubcfgpassw,hubcfgpath,hubdatapath,sercfgip,sercfguser,sercfgpassw,sercfgpath,serdatapath,queryip,queyruser,querypassw,querypath,hubsvn,sersvn FROM %s where id='%d'" % (database_table,mission_id)
+    sql = "SELECT hubcfgip,hubcfguser,hubcfgpassw,hubcfgpath,hubdatapath,sercfgip,sercfguser,sercfgpassw,sercfgpath,serdatapath,queryip,queyruser,querypassw,querypath,hubsvn,sersvn,fromlan,tolan FROM %s where id='%d'" % (database_table,mission_id)
     cursor.execute(sql)
     data = cursor.fetchone()
     sql = "UPDATE %s set start_time='%s', status = 2 where id=%d" % (database_table, get_now_time() ,mission_id)
@@ -47,12 +45,10 @@ def get_material():
         db.commit()
     except Exception as e:
         pass
-    #print("data", data)
     return data
 
 def update_errorlog(log):
     logstr = logUtils.logutil(mission_id)
-    #print(log.replace('\n', ''))
     log = log.replace("'", "\\'")
     sql = "UPDATE %s set errorlog=CONCAT(errorlog, '%s') where id=%d;" % (database_table, log, mission_id)
     cursor.execute(sql)
@@ -73,7 +69,7 @@ def set_status(stat):
         clean_proc()
 
 def clean_proc():
-    os.popen('killall -9 lt-queryoptimiz sggp')
+    os.popen('killall -9 lt-translate_server lt-sum_trans_hub')
     for pid in proc_list:
         try:
             stop_proc(pid)
@@ -287,7 +283,7 @@ def cp_cfg(ol_conf_hub,dist_path):
     if os.path.exists(dist_path):
         update_errorlog("[%s] cfg dir %s is exists,del it\n" % (get_now_time(), dist_path))
         os.popen("rm -rf " + dist_path)
-        os.popen("mkdir -p " + dist_path)
+    os.popen("mkdir -p " + dist_path)
     os.popen("cp -r %s/* %s/" % (ol_conf_hub, dist_path))
     return 0
 
@@ -299,6 +295,7 @@ def modify_hub_cfg(cfg_path,hub_port,server_fst,server_sec):
         os.popen("sed -i -e 's/server_name:.*ywserver01.fy.sjs.ted.*18000/server_name:\"10.153.51.61\" port:%s/' %s" %(server_fst,cfg_path+'/backend.cfg'))
         os.popen("sed -i -e 's/server_name:.*ywserver02.fy.sjs.ted.*18000/server_name:\"10.153.51.61\" port:%s/' %s" %(server_sec,cfg_path+'/backend.cfg'))
         os.popen("sed -i -e 's/listen_port:.*/listen_port:%s/' %s" %(hub_port,cfg_path+'/uniq_trans_hub1.cfg'))
+        os.popen("sed -i -e 's/qc_effective:.*1/qc_effective: 0/' %s" % (cfg_path+'/uniq_trans_hub1.cfg'))
     except Exception as e:
         update_errorlog("[%s] %s, sed cfg failed \n" % (get_now_time(), e))
         return 2
@@ -317,18 +314,27 @@ def cp_new_conf(tmp_conf_path, test_env_path):
 
     return 0
 
-def cp_start_sc(file_path):
+def cp_start_sc(file_path,sc_type):
     update_errorlog("[%s] %s\n" % (get_now_time(), "cp start.sh to env"))
-    os.popen("cp %s  %s/" % (start_sc_test, file_path))
+    if sc_type == 'test':
+        os.popen("cp %s  %s/" % (start_sc_test, file_path))
+    elif sc_type == 'base':
+        os.popen("cp %s  %s/" % (start_sc_base, file_path))
+    elif sc_type == 'hub':
+        os.popen("cp %s  %s/" % (start_sc_hub, file_path))
+    else:
+        update_errorlog("[%s] %s\n" % (get_now_time(), "cp start.sh to env success"))
+        return 1
     update_errorlog("[%s] %s\n" % (get_now_time(), "cp start.sh to env success"))
     return 0
 
 
 def scp_new_file(file_path,newfileip,newfileuser,newfilepassw,newfilepath,filetype):
     update_errorlog("[%s] try scp rd %s to test enviroment\n" % (get_now_time(),filetype))
-    if os.path.exists(file_path):
-        update_errorlog("[%s] %s dir exists,del it\n" % (get_now_time(), filetype))
-        os.popen("rm -rf " + file_path)
+    if filetype != 'query_data':
+        if os.path.exists(file_path):
+            update_errorlog("[%s] %s dir exists,del it\n" % (get_now_time(), filetype))
+            os.popen("rm -rf " + file_path)
 
     passwd_key = '.*assword.*'
 
@@ -471,204 +477,179 @@ def set_content_to_x(content, cost_type):
     
 
 
-def performance_once(file_path, performance_result, cost_type):
+def initEnv(file_path):
     asycmd = asycommands.TrAsyCommands(timeout=120)
     asycmd_list.append(asycmd)
 
-    # kill lt-queryoptimiz
-    for iotype, line in asycmd.execute_with_data(['ps -ef|grep lt-queryoptimiz|grep -v grep'], shell=True):
-        if (line.find('lt-queryoptimiz') != -1):
+    # kill all transserver
+    for iotype, line in asycmd.execute_with_data(['ps -ef|grep lt-translate_se|grep -v grep'], shell=True):
+        if (line.find('lt-translate_se') != -1):
             pid = int(line.split()[1])
             stop_proc(pid)
 
-    # clean Mem
-    sync_cmd = subprocess.Popen(['sync'], shell=False, cwd = file_path, stdout = subprocess.PIPE,stderr = subprocess.PIPE)
-    sync_cmd.wait()
-    if (sync_cmd.returncode == 0):
-        update_errorlog("[%s] %s sync success \n" % (get_now_time(), cost_type))
-    else:
-        update_errorlog("[%s] %s sync error \n" % (get_now_time(), cost_type))
-
-    echo_three_cmd = subprocess.Popen(['echo 3 > /proc/sys/vm/drop_caches'], shell=True, stdout = subprocess.PIPE,stderr = subprocess.PIPE)
-    echo_three_cmd.wait()
-    if (sync_cmd.returncode == 0):
-        update_errorlog("[%s] %s free mem success \n" % (get_now_time(), cost_type))
-    else:
-        update_errorlog("[%s] %s free pagecache, dentries and inodes error \n" % (get_now_time(), cost_type))
-
-    echo_one_cmd = subprocess.Popen(['echo 0 > /proc/sys/vm/drop_caches'], shell=True, stdout = subprocess.PIPE,stderr = subprocess.PIPE)
-    echo_one_cmd.wait()
-    if (sync_cmd.returncode == 0):
-        update_errorlog("[%s] %s reset success \n" % (get_now_time(), cost_type))
-    else:
-        update_errorlog("[%s] %s reset free error \n" % (get_now_time(), cost_type))
+    # kill all transhub
+    for iotype, line in asycmd.execute_with_data(['ps -ef|grep lt-sum_trans_hu|grep -v grep'], shell=True):
+        if (line.find('lt-sum_trans_hu') != -1):
+            pid = int(line.split()[1])
+            stop_proc(pid)
 
     log = []
-    # start lt-queryoptimiz
-    update_errorlog("[%s] Begin Start %s webqo\n" % (get_now_time(),cost_type))
-    (ret, service_pid) = lanch(file_path + "/QueryOptimizer", "start.sh", 8012, log)
+    # start test server01
+    update_errorlog("[%s] Begin Start test server01\n" % get_now_time())
+    (ret, service_pid) = lanch(file_path + "server/server_test/server01/server_frame/translate_server", "start_test_server.sh", 18003, log)
     if (ret < 0):
-        bakfile = runlogbak+cost_type+'_starterr_'+str(mission_id)
-        os.popen("cp %s %s" % (file_path+'/QueryOptimizer/err.log', bakfile))
-        update_errorlog("[%s] %s webqo Start error, errlog path %s s\n" % (get_now_time(), cost_type, local_ip+runlogbak))
-        for fname in os.listdir(file_path+'/QueryOptimizer'):
+        bakfile = runlogbak+'testserver01_'+str(mission_id)
+        os.popen("cp %s %s" % (file_path+'server/server_test/server01/server_frame/translate_server/err_1', bakfile))
+        update_errorlog("[%s] test server01 Start error, errlog path :%s \n" % (get_now_time(), local_ip+runlogbak))
+        for fname in os.listdir(file_path+'server/server_test/server01/server_frame/translate_server'):
             if 'core' in fname:
-                corefile = runlogbak+cost_type+'_startcore_'+str(mission_id)
-                os.popen("cp %s %s" % (file_path+'/QueryOptimizer/core.*', corefile))
-                update_errorlog("[%s] %s webqo Start core, core file path %s s\n" % (get_now_time(), cost_type, local_ip+runlogbak))
+                corefile = runlogbak+'testserver01core_'+str(mission_id)
+                os.popen("cp %s %s" % (file_path+'server/server_test/server01/server_frame/translate_server/core.*', corefile))
+                update_errorlog("[%s] test server01 Start core, core file path %s s\n" % (get_now_time(), local_ip+runlogbak))
         time.sleep(0.5)
         up_log = ""
         for line in log:
             up_log += "[%s] %s" % (get_now_time(), line + '\n')
         update_errorlog("%s\n" % (up_log))
-        for iotype, line in asycmd.execute_with_data(['/bin/tail', '-50', file_path + "/QueryOptimizer/err.log"], shell=False):
+        for iotype, line in asycmd.execute_with_data(['/bin/tail', '-50', file_path + "server/server_test/server01/server_frame/translate_server/err_1"], shell=False):
             up_log += line +'\n'
         update_errorlog(up_log.decode('gbk').encode('utf-8').replace("'", "\\'"))
         return -1
-    update_errorlog("[%s] %s webqo Start OK, cost %d s, PID %s \n" % (get_now_time(), cost_type, ret, str(service_pid)))
-
-    # Start PressTool
+    update_errorlog("[%s] test server01 Start OK, cost %d s, PID %s \n" % (get_now_time(), ret, str(service_pid)))
+    
+    # start test server02
     log = []
-    update_errorlog("[%s] Begin start PressTool\n" % get_now_time())
-    if cost_type == 'cost_test':
-        (ret, tools_pid) = sggp_lanch(sggp_path, "start_qo_test.sh", log)
-    else:
-        (ret, tools_pid) = sggp_lanch(sggp_path, "start_qo_base.sh", log)
-    print ret,tools_pid
+    update_errorlog("[%s] Begin Start test server02\n" % get_now_time())
+    (ret, service_pid) = lanch(file_path + "server/server_test/server02/server_frame/translate_server", "start_test_server.sh", 18004, log)
     if (ret < 0):
+        bakfile = runlogbak+'testserver02_'+str(mission_id)
+        os.popen("cp %s %s" % (file_path+'server/server_test/server02/server_frame/translate_server/err_1', bakfile))
+        update_errorlog("[%s] test server02 Start error, errlog path %s s\n" % (get_now_time(), local_ip+runlogbak))
+        for fname in os.listdir(file_path+'server/server_test/server02/server_frame/translate_server'):
+            if 'core' in fname:
+                corefile = runlogbak+'testserver02core_'+str(mission_id)
+                os.popen("cp %s %s" % (file_path+'server/server_test/server02/server_frame/translate_server/core.*', corefile))
+                update_errorlog("[%s] test server02 Start core, core file path %s s\n" % (get_now_time(), local_ip+runlogbak))
         time.sleep(0.5)
         up_log = ""
         for line in log:
             up_log += "[%s] %s" % (get_now_time(), line + '\n')
         update_errorlog("%s\n" % (up_log))
-        up_log = ""
-        for iotype, line in asycmd.execute_with_data(['/bin/tail', '-50', sggp_path + "/err"], shell=False):
-            up_log += line + '\n'
+        for iotype, line in asycmd.execute_with_data(['/bin/tail', '-50', file_path + "server/server_test/server02/server_frame/translate_server/err_1"], shell=False):
+            up_log += line +'\n'
         update_errorlog(up_log.decode('gbk').encode('utf-8').replace("'", "\\'"))
         return -1
-    update_errorlog("[%s] PressTool Start OK ,PIDs %s \n" % (get_now_time(),str(tools_pid)))
-    update_errorlog("[%s] Wait PressTool...\n" % get_now_time())
-
-    # Wait PressTool Stop
-    for subpid in tools_pid:
-        wait_to_die(subpid, 5*30,file_path,cost_type)
-    update_errorlog("[%s] PressTool stoped\n" % get_now_time())
-
-    # Stop webqo
-    stop_proc(service_pid)
-    update_errorlog("[%s] %s webqo stoped\n" % (get_now_time(),cost_type))
-
-    return get_performance(file_path + '/QueryOptimizer/err.log', performance_result,cost_type)
-
-def get_performance(log_file, performance,cost_type):
-    update_errorlog("[%s] start to get performance result %s \n" % (get_now_time(),log_file))
-    bakfile = runlogbak+cost_type+'_err_'+str(mission_id)
-    os.popen("cp %s %s" % (log_file, bakfile))
-    if (os.path.exists(log_file) is False):
-        performance.append(log_file + " is not exists")
+    update_errorlog("[%s] test server02 Start OK, cost %d s, PID %s \n" % (get_now_time(), ret, str(service_pid)))
+    
+    # start test hub
+    log= []
+    update_errorlog("[%s] Begin Start test hub\n" % get_now_time())
+    (ret, service_pid) = lanch(file_path + "hub/hub_test/server_frame", "start_hub.sh", 12001, log)
+    if (ret < 0):
+        bakfile = runlogbak+'testhub_'+str(mission_id)
+        os.popen("cp %s %s" % (file_path+'hub/hub_test/server_frame/err_1', bakfile))
+        update_errorlog("[%s] test hub Start error, errlog path %s s\n" % (get_now_time(), local_ip+runlogbak))
+        for fname in os.listdir(file_path+'hub/hub_test/server_frame'):
+            if 'core' in fname:
+                corefile = runlogbak+'testhubcore_'+str(mission_id)
+                os.popen("cp %s %s" % (file_path+'hub/hub_test/server_frame/core.*', corefile))
+                update_errorlog("[%s] test hub Start core, core file path %s s\n" % (get_now_time(), local_ip+runlogbak))
+        time.sleep(0.5)
+        up_log = ""
+        for line in log:
+            up_log += "[%s] %s" % (get_now_time(), line + '\n')
+        update_errorlog("%s\n" % (up_log))
+        for iotype, line in asycmd.execute_with_data(['/bin/tail', '-50', file_path + "hub/hub_test/server_frame/err_1"], shell=False):
+            up_log += line +'\n'
+        update_errorlog(up_log.decode('gbk').encode('utf-8').replace("'", "\\'"))
         return -1
+    update_errorlog("[%s] test hub Start OK, cost %d s, PID %s \n" % (get_now_time(), ret, str(service_pid)))
 
-    asycmd = asycommands.TrAsyCommands(timeout=240)
-    asycmd_list.append(asycmd)
-    for iotype, line in asycmd.execute_with_data(['python3', cost_tool, log_file], shell=False):
-        performance.append(line)
-    if (asycmd.return_code() != 0):
-        return asycmd.return_code()
-    return 0
+    log = []
+    # start base server01
+    update_errorlog("[%s] Begin Start base server01\n" % get_now_time())
+    (ret, service_pid) = lanch(file_path + "server/server_base/server01/server_frame/translate_server", "start_base_server.sh", 18001, log)
+    if (ret < 0):
+        bakfile = runlogbak+'baseserver01_'+str(mission_id)
+        os.popen("cp %s %s" % (file_path+'server/server_base/server01/server_frame/translate_server/err_1', bakfile))
+        update_errorlog("[%s] base server01 Start error, errlog path :%s \n" % (get_now_time(), local_ip+runlogbak))
+        for fname in os.listdir(file_path+'server/server_base/server01/server_frame/translate_server'):
+            if 'core' in fname:
+                corefile = runlogbak+'baseserver01core_'+str(mission_id)
+                os.popen("cp %s %s" % (file_path+'server/server_base/server01/server_frame/translate_server/core.*', corefile))
+                update_errorlog("[%s] base server01 Start core, core file path %s s\n" % (get_now_time(), local_ip+runlogbak))
+        time.sleep(0.5)
+        up_log = ""
+        for line in log:
+            up_log += "[%s] %s" % (get_now_time(), line + '\n')
+        update_errorlog("%s\n" % (up_log))
+        for iotype, line in asycmd.execute_with_data(['/bin/tail', '-50', file_path + "server/server_base/server01/server_frame/translate_server/err_1"], shell=False):
+            up_log += line +'\n'
+        update_errorlog(up_log.decode('gbk').encode('utf-8').replace("'", "\\'"))
+        return -1
+    update_errorlog("[%s] base server01 Start OK, cost %d s, PID %s \n" % (get_now_time(), ret, str(service_pid)))
 
-def sggp_lanch(file_path, start_script, log):
-# rules: start_script must put pid in `PID` file: echo $! > PID
-# return a tuple(retcode, pid)
-#lanch(sggp_path, "start_qo_group.sh", -1, log)
-    pid = list()
-    asycmd = asycommands.TrAsyCommands(timeout=30)
-    asycmd_list.append(asycmd)
-    child = subprocess.Popen(['/bin/sh', start_script], shell=False, cwd = file_path, stdout = subprocess.PIPE,stderr = subprocess.PIPE)
-    child.wait()
-    if (child.returncode != 0):
-        log.append(child.stderr.read())
-        return (-1, pid)
-    for iotype, line in asycmd.execute_with_data(['/bin/cat', file_path + "/PID"], shell=False):
-        if (iotype == 1 and line != ""):
-            try:
-                pid.append(int(line))
-            except:
-                continue
-    if len(pid) == 0:
-        return (-2, pid)
-    proc = None
-    for subpid in pid:
-        try:
-            proc = psutil.Process(subpid)
-        except:
-            log.append("process %d is not alive" % pid)
-            return (-3, pid)
-    return (0, pid)
+    # start base server02
+    log = []
+    update_errorlog("[%s] Begin Start base server02\n" % get_now_time())
+    (ret, service_pid) = lanch(file_path + "server/server_base/server02/server_frame/translate_server", "start_base_server.sh", 18002, log)
+    if (ret < 0):
+        bakfile = runlogbak+'baseserver02_'+str(mission_id)
+        os.popen("cp %s %s" % (file_path+'server/server_base/server02/server_frame/translate_server/err_1', bakfile))
+        update_errorlog("[%s] base server02 Start error, errlog path %s s\n" % (get_now_time(), local_ip+runlogbak))
+        for fname in os.listdir(file_path+'server/server_base/server02/server_frame/translate_server'):
+            if 'core' in fname:
+                corefile = runlogbak+'baseserver02core_'+str(mission_id)
+                os.popen("cp %s %s" % (file_path+'server/server_base/server02/server_frame/translate_server/core.*', corefile))
+                update_errorlog("[%s] base server02 Start core, core file path %s s\n" % (get_now_time(), local_ip+runlogbak))
+        time.sleep(0.5)
+        up_log = ""
+        for line in log:
+            up_log += "[%s] %s" % (get_now_time(), line + '\n')
+        update_errorlog("%s\n" % (up_log))
+        for iotype, line in asycmd.execute_with_data(['/bin/tail', '-50', file_path + "server/server_base/server02/server_frame/translate_server/err_1"], shell=False):
+            up_log += line +'\n'
+        update_errorlog(up_log.decode('gbk').encode('utf-8').replace("'", "\\'"))
+        return -1
+    update_errorlog("[%s] base server02 Start OK, cost %d s, PID %s \n" % (get_now_time(), ret, str(service_pid)))
 
+    # start base hub
+    log= []
+    update_errorlog("[%s] Begin Start base hub\n" % get_now_time())
+    (ret, service_pid) = lanch(file_path + "hub/hub_base/server_frame", "start_hub.sh", 12000, log)
+    if (ret < 0):
+        bakfile = runlogbak+'basehub_'+str(mission_id)
+        os.popen("cp %s %s" % (file_path+'hub/hub_base/server_frame/err_1', bakfile))
+        update_errorlog("[%s] base hub Start error, errlog path %s s\n" % (get_now_time(), local_ip+runlogbak))
+        for fname in os.listdir(file_path+'hub/hub_base/server_frame'):
+            if 'core' in fname:
+                corefile = runlogbak+'basehubcore_'+str(mission_id)
+                os.popen("cp %s %s" % (file_path+'hub/hub_base/server_frame/core.*', corefile))
+                update_errorlog("[%s] base hub Start core, core file path %s s\n" % (get_now_time(), local_ip+runlogbak))
+        time.sleep(0.5)
+        up_log = ""
+        for line in log:
+            up_log += "[%s] %s" % (get_now_time(), line + '\n')
+        update_errorlog("%s\n" % (up_log))
+        for iotype, line in asycmd.execute_with_data(['/bin/tail', '-50', file_path + "hub/hub_base/server_frame/err_1"], shell=False):
+            up_log += line +'\n'
+        update_errorlog(up_log.decode('gbk').encode('utf-8').replace("'", "\\'"))
+        return -1
+    update_errorlog("[%s] base hub Start OK, cost %d s, PID %s \n" % (get_now_time(), ret, str(service_pid)))
 
-def configure_sggp(sggp_conf_file,qps,time):
-    if qps == '':
-        qps = 1000
-    if time == '' or time > 30:
-        time = 15
+    update_errorlog("[%s] Autodiff env init success \n" % get_now_time())
+    return 0 
 
-    os.popen("sed -i 's/press_time=.*/press_time=%s/g' %s" %(time, sggp_conf_file))
-    os.popen("sed -i 's/press_qps=.*/press_qps=%s/g' %s" %(qps, sggp_conf_file))
-    update_errorlog("[%s] configure sggp_conf success\n" % get_now_time())
-    
-    return 0
-
-def configure_sggp_test(sggp_path,qps,time,press_expid,press_rate):
-    if qps == '':
-        qps = 1000
-    if time == '' or time > 30:
-        time = 30
-    thread_size = int(qps/4)
-    cfg_expall = confhelper.ConfReader(sggp_path+'/web_qo_expall.ini')
-    cfg_expall.setValue('web_qo_exp','press_qps',qps)
-    cfg_expall.setValue('web_qo_exp','thread_size',thread_size)
-    cfg_expall.setValue('web_qo_exp','press_time',time)
-    
-    cfg_online = confhelper.ConfReader(sggp_path+'/web_qo_online.ini')
-    cfg_online.setValue('web_qo','press_qps',qps)
-    cfg_online.setValue('web_qo','thread_size',thread_size)
-    cfg_online.setValue('web_qo','press_time',time)
-
-    if(os.path.exists(sggp_path+'/start_qo_test.sh')):
-        print 'start_qo_test is exist,del it'
-        update_errorlog("[%s] start_qo_test is exist,del it\n" % get_now_time())
-        os.popen('rm -rf %s' % (sggp_path+'/start_qo_test.sh'))
-    if press_expid != 0 and press_rate > 0:
-        print sggp_path,qps,press_expid,press_rate
-        expid= hex(press_expid)[2:]+'^0^0^0^0^0^0^0^0'
-        commandline = 'echo '+expid+' | /search/odin/daemon/webqo/tools/sggp/data/Encode -f utf8 -t utf16'
-        asycmd = asycommands.TrAsyCommands(timeout=240)
-        asycmd_list.append(asycmd)
-        for iotype, line in asycmd.execute_with_data([commandline], shell=True):
-            exp_id = "exp_id="+line
-        base_query=sggp_query_path+'query_qo_base'
-        command = '''awk '{print "'''+exp_id+""""$0}' """ +base_query+">"+sggp_query_path+"query_qo_expid"
-        try:
-            child = subprocess.Popen(command, shell = True, stdout = subprocess.PIPE, stderr = subprocess.PIPE)
-            child.communicate(input=None)
-            child.poll()
-        except Exception as e:
-            update_errorlog("[%s] create expid query wrong ,except:%s\n" % (get_now_time(), e))
-        if press_rate < 100:
-            qo_expid_qps=qps*press_rate/100
-            qo_qps = 1000-qo_expid_qps
-            cfg=confhelper.ConfReader(sggp_path+'/web_qo_group.ini')
-            cfg.setValue('web_qo_exp','press_qps',int(qo_expid_qps))
-            cfg.setValue('web_qo_exp','thread_size',int(qo_expid_qps))
-            cfg.setValue('web_qo','press_qps',int(qo_qps))
-            cfg.setValue('web_qo','thread_size',int(qo_qps/5))
-            cfg.setValue('web_qo_exp','press_time',time)
-            cfg.setValue('web_qo','press_time',time)
-            os.symlink(sggp_path+'/start_qo_group.sh',sggp_path+'/start_qo_test.sh')
-        elif press_rate == 100:
-            os.symlink(sggp_path+'/start_qo_expall.sh',sggp_path+'/start_qo_test.sh')
-    else:
-        os.symlink(sggp_path+'/start_qo_online.sh',sggp_path+'/start_qo_test.sh')
+def sendReqAndDiff(root_path,fromlan,tolan):
+    update_errorlog("[%s] Begin to diff fromlang %s tolang %s\n" % (get_now_time(),fromlan,tolan))
+    query_tools_path = root_path+'tools/'
+    queryFileName = os.listdir(query_tools_path+'query')[0]
+    try:
+        getdiff.getDiff(query_tools_path,queryFileName,fromlan,tolan,mission_id)
+    except Exception as e:
+        update_errorlog("[%s] diff error %s\n" % (get_now_time(),str(e)))
+        return 1
+    update_errorlog("[%s] diff complate fromlang %s tolang %s\n" % (get_now_time(),fromlan,tolan))
     return 0    
 def svninfo_from_job(job_ini_path,svn_type):
     global hub_svn_base
@@ -732,7 +713,7 @@ def main():
 
     loginfo.log_info("mission_id:"+str(mission_id))
 
-    (hubcfgip,hubcfguser,hubcfgpassw,hubcfgpath,hubdatapath,sercfgip,sercfguser,sercfgpassw,sercfgpath,serdatapath,queryip,queyruser,querypassw,querypath,hubsvn,sersvn) = get_material()
+    (hubcfgip,hubcfguser,hubcfgpassw,hubcfgpath,hubdatapath,sercfgip,sercfguser,sercfgpassw,sercfgpath,serdatapath,queryip,queyruser,querypassw,querypath,hubsvn,sersvn,fromlan,tolan) = get_material()
 
     loginfo.log_info("hub_svn:"+ hubsvn)
     loginfo.log_info("server_svn:"+ sersvn)
@@ -750,20 +731,10 @@ def main():
     loginfo.log_info("queyruser:"+ queyruser)
     loginfo.log_info("querypassw:"+ querypassw)
     loginfo.log_info("querypath:"+ querypath)
+    loginfo.log_info("fromlan:"+ fromlan)
+    loginfo.log_info("tolan:"+ tolan)
 
-    ####configure sggp/ACE_Pressure_CACHE.ini
 
-#    ret_configure_sggp = configure_sggp(sggp_conf,press_qps,press_time)
-#    if ret_configure_sggp != 0:
-#        update_errorlog("[%s] %s\n" % (get_now_time(), "configure sggp_conf has some error, pls check"))
-#        set_status(3)
-#        return -1
-
-#    ret_configure_sggp_test = configure_sggp_test(sggp_path,press_qps,press_time,press_expid,press_rate)
-#    if ret_configure_sggp_test != 0:
-#        update_errorlog("[%s] %s\n" % (get_now_time(), "configure sggp_conf has some error, pls check"))
-#        set_status(3)
-#        return -1
     # rsync hub data from online to local    
     sync_ol_data_hub = sync_ol_data_to_local(ol_data_hub,'hub_data')
     if sync_ol_data_hub != 0:
@@ -820,47 +791,66 @@ def main():
         set_status(3)
         return -1
 
-    #testsvn=""
-    #basesvn=""
+    # scp query to tools dir
+    try:
+        update_errorlog("[%s] %s\n" % (get_now_time(), "start try to scp query data"))
+        if(os.path.exists(root_path+'tools/query')):
+            loginfo.log_info('query dir is exist and save it')
+            oldfile = os.listdir(root_path+'tools/query')
+            timeArray = time.localtime()
+            filename = time.strftime("%Y-%m-%d_%H%M%S", timeArray)
+            if oldfile:
+                os.popen('mv %s %s' % (root_path+'tools/query/'+oldfile[0],root_path+'tools/query_bak/'+filename+'_'+oldfile[0]))
+        if queryip!='' and queyruser!='' and querypassw!='' and querypath!='':
+            scpres = scp_new_file(root_path+'tools/query',queryip,queyruser,querypassw,querypath,'query_data')
+        else:
+            update_errorlog("[%s] %s\n" % (get_now_time(), "query data configure is wrong"))
+            set_status(3)
+            return -1
+    except Exception as e:
+        update_errorlog("[%s] %s\n" % (get_now_time(), e))
+        set_status(3)
+        return -1
+    update_errorlog("[%s] %s\n" % (get_now_time(), "query data scp local success"))
 
 
-##### config test hub
+### config test hub
     if hubsvn.strip() !="":        
-        update_errorlog("[%s] %s\n" % (get_now_time(), "try start new hub"))
-        update_errorlog("[%s] %s\n" % (get_now_time(), "start try build new hub enviroment"))
+        update_errorlog("[%s] %s\n" % (get_now_time(), "try start deploy test hub"))
+        update_errorlog("[%s] %s\n" % (get_now_time(), "start try build test hub enviroment"))
 
-#        ### check code
-#        try:
-#            update_errorlog("[%s] %s\n" % (get_now_time(), "test start try check code"))
-#            ret = checkcode_env(test_hub, hubsvn)
-#        except Exception as e:
-#            update_errorlog("[%s] %s\n" % (get_now_time(), e))
-#            set_status(3)
-#            return -1
-#
-#        if (ret != 0):
-#            set_status(3)
-#            return 4
-#        update_errorlog("[%s] %s\n" % (get_now_time(), "test check code ok"))
-#                
-#        ### make
-#        try:
-#            update_errorlog("[%s] %s\n" % (get_now_time(), "test start try make"))
-#            ret = make_env(test_hub)
-#        except Exception as e:
-#            update_errorlog("[%s] %s\n" % (get_now_time(), e))
-#            set_status(3)
-#            return -1
-#
-#        if (ret != 0):
-#            set_status(3)
-#            return 4
-#        update_errorlog("[%s] %s\n" % (get_now_time(), "test make ok"))
+        ### check code
+        try:
+            update_errorlog("[%s] %s\n" % (get_now_time(), "start try check test hub code"))
+            ret = checkcode_env(test_hub, hubsvn)
+        except Exception as e:
+            update_errorlog("[%s] %s\n" % (get_now_time(), e))
+            set_status(3)
+            return -1
+
+        if (ret != 0):
+            set_status(3)
+            return 4
+        update_errorlog("[%s] %s\n" % (get_now_time(), "check test hub code ok"))
+                
+        ### make
+        try:
+            update_errorlog("[%s] %s\n" % (get_now_time(), "start try make test hub "))
+            ret = make_env(test_hub)
+        except Exception as e:
+            update_errorlog("[%s] %s\n" % (get_now_time(), e))
+            set_status(3)
+            return -1
+
+        if (ret != 0):
+            set_status(3)
+            return 4
+        update_errorlog("[%s] %s\n" % (get_now_time(), "make test hub ok"))
         
         
         ### scp new data to test env or cp online to test env
         try:
-            update_errorlog("[%s] %s\n" % (get_now_time(), "test start try to configure hub data"))
+            update_errorlog("[%s] %s\n" % (get_now_time(), "start try to configure test hub data"))
             if(os.path.exists(test_hub+'/server_frame/data')):
                     loginfo.log_info('testhub_data_dir is exist and del it')
                     os.popen('rm -rf %s' % (test_hub+'/server_frame/data'))
@@ -870,7 +860,7 @@ def main():
                 os.popen('mkdir -p  %s' % (test_hub+'/server_frame/data'))
                 scpres = scp_new_file(test_hub+'/server_frame/data',hubcfgip,hubcfguser,hubcfgpassw,hubdatapath,'hub_data')
             else:
-                update_errorlog("[%s] %s\n" % (get_now_time(), "test new data configure is wrong"))
+                update_errorlog("[%s] %s\n" % (get_now_time(), "test hub data configure is wrong"))
                 set_status(3)
                 return -1
         except Exception as e:
@@ -883,7 +873,7 @@ def main():
 
         ### scp new conf to test env
         try:
-            update_errorlog("[%s] %s\n" % (get_now_time(), "test start to ctrl cfg "))
+            update_errorlog("[%s] %s\n" % (get_now_time(), "start to deploy test hub cfg "))
             if hubcfgpath == '': 
                 loginfo.log_info('use cfg online')
                 #ret = cp_new_conf(ol_conf_path,test_path)
@@ -893,7 +883,7 @@ def main():
                 ret = scp_new_file(test_hub+'/server_frame/conf',hubcfgip,hubcfguser,hubcfgpassw,hubcfgpath,'hub_conf')
                 
             else:
-                update_errorlog("[%s] %s\n" % (get_now_time(), "test new conf configure is wrong"))
+                update_errorlog("[%s] %s\n" % (get_now_time(), "test hub conf configure is wrong"))
                 set_status(3)
                 return -1
             ret = modify_hub_cfg(test_hub+'/server_frame/conf','12001','18003','18004')
@@ -904,62 +894,76 @@ def main():
             update_errorlog("[%s] %s\n" % (get_now_time(), e))
             set_status(3)
             return -1
-        update_errorlog("[%s] %s\n" % (get_now_time(), "test conf file ok"))
+        update_errorlog("[%s] %s\n" % (get_now_time(), "test hub conf file deploy ok"))
+
+         #    ### cp start.sh to env
+        try:
+            update_errorlog("[%s] %s\n" % (get_now_time(), "start to cp start_hub.sh to test hub env"))
+            ret = cp_start_sc(test_hub+'/server_frame','hub')
+        except Exception, e:
+            update_errorlog("[%s] %s\n" % (get_now_time(), e))
+            set_status(3)
+            return -1
+        if (ret != 0):
+            set_status(3)
+            return 4
+        update_errorlog("[%s] %s\n" % (get_now_time(), "cp start.sh to test hub env ok"))
+
         
 
-###### just run base
+###### deploy test server
     if sersvn.strip() !="":
 
-#        update_errorlog("[%s] %s\n" % (get_now_time(), "try start to config test server "))
-#        update_errorlog("[%s] %s\n" % (get_now_time(), "start try build test server"))
-#        ### check code
-#        try:
-#            update_errorlog("[%s] %s\n" % (get_now_time(), "server01 start try check code"))
-#            ret = checkcode_env(test_server+'/server01', sersvn)
-#        except Exception as e:
-#            update_errorlog("[%s] %s\n" % (get_now_time(), e))
-#            set_status(3)
-#            return -1
-#
-#        if (ret != 0):
-#            set_status(3)
-#            return 4
-#        update_errorlog("[%s] %s\n" % (get_now_time(), "server01 check code ok"))
-#        
-#        ### make
-#        try:
-#            update_errorlog("[%s] %s\n" % (get_now_time(), "base start try make"))
-#            ret = make_env(test_server+'/server01')
-#        except Exception as e:
-#            update_errorlog("[%s] %s\n" % (get_now_time(), e))
-#            set_status(3)
-#            return -1
-#
-#        if (ret != 0):
-#            set_status(3)
-#            return 4
-#        update_errorlog("[%s] %s\n" % (get_now_time(), "base make ok"))
+        update_errorlog("[%s] %s\n" % (get_now_time(), "try start to deploy test server01 "))
+        update_errorlog("[%s] %s\n" % (get_now_time(), "start try build test server01"))
+        ### check code
+        try:
+            update_errorlog("[%s] %s\n" % (get_now_time(), "test server01 start try check code"))
+            ret = checkcode_env(test_server+'/server01', sersvn)
+        except Exception as e:
+            update_errorlog("[%s] %s\n" % (get_now_time(), e))
+            set_status(3)
+            return -1
+
+        if (ret != 0):
+            set_status(3)
+            return 4
+        update_errorlog("[%s] %s\n" % (get_now_time(), "test server01 check code ok"))
         
-#        ### scp new data to test env or cp online to test env
-#        try:
-#            update_errorlog("[%s] %s\n" % (get_now_time(), "test start try to configure test server01 data"))
-#            if(os.path.exists(test_server+'/server01/server_frame/translate_server/data')):
-#                    loginfo.log_info('test server01_data_dir is exist and del it')
-#                    os.popen('rm -rf %s' % (test_server+'/server01/server_frame/translate_server/data'))
-#            if serdatapath == '':
-#                os.symlink(ol_data_server,test_server+'/server01/server_frame/translate_server/data')
-#            elif sercfgip!='' and sercfguser!='' and sercfgpassw !='' and serdatapath!='':
-#                os.popen('mkdir -p  %s' % (test_server+'/server01/server_frame/translate_server/data'))
-#                scpres = scp_new_file(test_server+'/server01/server_frame/translate_server/data',sercfgip,sercfguser,sercfgpassw,serdatapath,'server_data')
-#            else:
-#                update_errorlog("[%s] %s\n" % (get_now_time(), "test server new data configure is wrong"))
-#                set_status(3)
-#                return -1
-#        except Exception as e:
-#            update_errorlog("[%s] %s\n" % (get_now_time(), e))
-#            set_status(3)
-#            return -1
-#        update_errorlog("[%s] %s\n" % (get_now_time(), "test server01 data ok"))
+        ### make
+        try:
+            update_errorlog("[%s] %s\n" % (get_now_time(), "test server01 start try make"))
+            ret = make_env(test_server+'/server01')
+        except Exception as e:
+            update_errorlog("[%s] %s\n" % (get_now_time(), e))
+            set_status(3)
+            return -1
+
+        if (ret != 0):
+            set_status(3)
+            return 4
+        update_errorlog("[%s] %s\n" % (get_now_time(), "test server01 make ok"))
+       
+        ### scp new data to test env or cp online to test env
+        try:
+            update_errorlog("[%s] %s\n" % (get_now_time(), "start try to configure test server01 data"))
+            if(os.path.exists(test_server+'/server01/server_frame/translate_server/data')):
+                    loginfo.log_info('test server01_data_dir is exist and del it')
+                    os.popen('rm -rf %s' % (test_server+'/server01/server_frame/translate_server/data'))
+            if serdatapath == '':
+                os.symlink(ol_data_server,test_server+'/server01/server_frame/translate_server/data')
+            elif sercfgip!='' and sercfguser!='' and sercfgpassw !='' and serdatapath!='':
+                os.popen('mkdir -p  %s' % (test_server+'/server01/server_frame/translate_server/data'))
+                scpres = scp_new_file(test_server+'/server01/server_frame/translate_server/data',sercfgip,sercfguser,sercfgpassw,serdatapath,'server_data')
+            else:
+                update_errorlog("[%s] %s\n" % (get_now_time(), "test server01 new data configure is wrong"))
+                set_status(3)
+                return -1
+        except Exception as e:
+            update_errorlog("[%s] %s\n" % (get_now_time(), e))
+            set_status(3)
+            return -1
+        update_errorlog("[%s] %s\n" % (get_now_time(), "test server01 data ok"))
 
 
 	### scp new conf to test env
@@ -974,7 +978,7 @@ def main():
                 ret = scp_new_file(test_server+'/server01/server_frame/translate_server/conf',sercfgip,sercfguser,sercfgpassw,sercfgpath,'server_data')
 
             else:
-                update_errorlog("[%s] %s\n" % (get_now_time(), "test server new conf configure is wrong"))
+                update_errorlog("[%s] %s\n" % (get_now_time(), "test server01 new conf configure is wrong"))
                 set_status(3)
                 return -1
             os.popen("sed -i -e 's/listen_port:.*/listen_port:%s/' %s" %('18003',test_server+'/server01/server_frame/translate_server/conf/eng_trans_server1.cfg'))
@@ -994,7 +998,7 @@ def main():
         ### cp start.sh to env
         try:
             update_errorlog("[%s] %s\n" % (get_now_time(), "start to cp start_test_server.sh to test server01 env"))
-            ret = cp_start_sc(test_server+'/server01/server_frame/translate_server')
+            ret = cp_start_sc(test_server+'/server01/server_frame/translate_server','test')
         except Exception, e:
             update_errorlog("[%s] %s\n" % (get_now_time(), e))
             set_status(3)
@@ -1005,20 +1009,29 @@ def main():
             return 4
         update_errorlog("[%s] %s\n" % (get_now_time(), "cp start.sh to base env ok")) 
 
-#        ### deploy server02 from server01
-#        try:
-#            update_errorlog("[%s] %s\n" % (get_now_time(), "cp hole server01 to server02 and modify cfg"))
-#            if os.path.exists(test_server+'/server02'):
-#                update_errorlog("[%s] %s dir exists,del it\n" % (get_now_time(), 'server02'))
-#                os.popen("rm -rf " + test_server+'/server02')
-#            os.popen("cp -r %s  %s/" % (test_server+'/server01', test_server+'/server02'))
-#            os.popen("sed -i -e 's/listen_port:.*/listen_port:%s/' %s" %('18004',test_server+'/server02/server_frame/translate_server/conf/eng_trans_server1.cfg'))
-#            os.popen("sed -i -e 's/gpus_to_use:.*2/gpus_to_use:3/' %s" %(test_server+'/server02/server_frame/translate_server/conf/eng_trans_server1.cfg'))
-#        except Exception, e:
-#            update_errorlog("[%s] %s\n" % (get_now_time(), e))
-#            set_status(3)
-#            return -1
-#        update_errorlog("[%s] %s\n" % (get_now_time(), "cp hole server01 to server02 success"))
+        ### deploy server02 from server01
+        try:
+            update_errorlog("[%s] %s\n" % (get_now_time(), "cp hole test server01 to test server02 and modify cfg"))
+            if os.path.exists(test_server+'/server02'):
+                update_errorlog("[%s] %s dir exists,del it\n" % (get_now_time(), 'server02'))
+                os.popen("rm -rf " + test_server+'/server02')
+            os.popen("cp -r %s  %s/" % (test_server+'/server01', test_server+'/server02'))
+            os.popen("sed -i -e 's/listen_port:.*/listen_port:%s/' %s" %('18004',test_server+'/server02/server_frame/translate_server/conf/eng_trans_server1.cfg'))
+            os.popen("sed -i -e 's/gpus_to_use:.*2/gpus_to_use:3/' %s" %(test_server+'/server02/server_frame/translate_server/conf/eng_trans_server1.cfg'))
+            if os.path.exists(test_server+'/server02/server_frame/translate_server/conf/sum_graph.cfg'):
+                update_errorlog("[%s] %s dir exists,del it\n" % (get_now_time(), 'sum_graph.cfg'))
+                os.popen("rm -rf " + test_server+'/server02/server_frame/translate_server/conf/sum_graph.cfg')
+            lns_cmd = subprocess.Popen(['ln -s sum_graph2.cfg sum_graph.cfg'], shell=True, cwd = test_server+'/server02/server_frame/translate_server/conf', stdout = subprocess.PIPE,stderr = subprocess.PIPE)
+            lns_cmd.wait()
+            if (lns_cmd.returncode == 0):
+                update_errorlog("[%s] sum_graph.cfg make link success \n" % get_now_time())
+            else:
+                update_errorlog("[%s] sum_graph.cfg make link error \n" % get_now_time()) 
+        except Exception, e:
+            update_errorlog("[%s] %s\n" % (get_now_time(), e))
+            set_status(3)
+            return -1
+        update_errorlog("[%s] %s\n" % (get_now_time(), "cp hole test server01 to test server02 success"))
 
     #deploy base env
     #hub
@@ -1032,121 +1045,53 @@ def main():
         return -1
 
     ### check code
-#    try:
-#        update_errorlog("[%s] %s\n" % (get_now_time(), "test start try check base hub code"))
-#        ret = checkcode_env(base_hub, hub_svn_base)
-#    except Exception as e:
-#        update_errorlog("[%s] %s\n" % (get_now_time(), e))
-#        set_status(3)
-#        return -1
-#    if (ret != 0):
-#        set_status(3)
-#        return 4
-#    update_errorlog("[%s] %s\n" % (get_now_time(), "test check code ok"))
-#                
-#    ### make
-#    try:
-#        update_errorlog("[%s] %s\n" % (get_now_time(), "test start try make"))
-#        ret = make_env(base_hub)
-#    except Exception as e:
-#        update_errorlog("[%s] %s\n" % (get_now_time(), e))
-#        set_status(3)
-#        return -1
-#    if (ret != 0):
-#        set_status(3)
-#        return 4
-#    update_errorlog("[%s] %s\n" % (get_now_time(), "test make ok"))
-#
-#    ### scp new data to test env or cp online to test env
-#    try:
-#        update_errorlog("[%s] %s\n" % (get_now_time(), "test start try to configure base hub data"))
-#        if(os.path.exists(base_hub+'/server_frame/data')):
-#                loginfo.log_info('base hub_data_dir is exist and del it')
-#                os.popen('rm -rf %s' % (test_hub+'/server_frame/data'))
-#        os.symlink(ol_data_hub,base_hub+'/server_frame/data')
-#    except Exception as e:
-#        update_errorlog("[%s] %s\n" % (get_now_time(), e))
-#        set_status(3)
-#        return -1
-#    update_errorlog("[%s] %s\n" % (get_now_time(), "base hub data ok"))
-#
-#
-#
-#    ### scp new conf to test env
-#    try:
-#        update_errorlog("[%s] %s\n" % (get_now_time(), "base hub start to deploy cfg "))
-#        loginfo.log_info('use cfg online')
-#        #ret = cp_new_conf(ol_conf_path,test_path)
-#        cp_cfg(ol_conf_hub,base_hub+'/server_frame/conf')
-#        ret = modify_hub_cfg(base_hub+'/server_frame/conf','12000','18001','18002')
-#        if ret != 0:
-#            set_status(3)
-#            return -1
-#    except Exception, e:
-#        update_errorlog("[%s] %s\n" % (get_now_time(), e))
-#        set_status(3)
-#        return -1
-#    update_errorlog("[%s] %s\n" % (get_now_time(), "test conf file ok"))
-    
+    try:
+        update_errorlog("[%s] %s\n" % (get_now_time(), "start try check base hub code"))
+        ret = checkcode_env(base_hub, hub_svn_base)
+    except Exception as e:
+        update_errorlog("[%s] %s\n" % (get_now_time(), e))
+        set_status(3)
+        return -1
+    if (ret != 0):
+        set_status(3)
+        return 4
+    update_errorlog("[%s] %s\n" % (get_now_time(), "check base hub code ok"))
+                
+    ### make
+    try:
+        update_errorlog("[%s] %s\n" % (get_now_time(), "start try make base hub"))
+        ret = make_env(base_hub)
+    except Exception as e:
+        update_errorlog("[%s] %s\n" % (get_now_time(), e))
+        set_status(3)
+        return -1
+    if (ret != 0):
+        set_status(3)
+        return 4
+    update_errorlog("[%s] %s\n" % (get_now_time(), "make base hub ok"))
 
-    #server
-#    try:
-#        update_errorlog("[%s] %s\n" % (get_now_time(), "get base server01 svn info from job.ini"))
-#        svninfo_from_job(ol_info_server,'server_job_svn')
-#        print server_svn_base
-#    except Exception as e:
-#        update_errorlog("[%s] get base server svn info from job.ini failed\n" % get_now_time(), e)
-#        set_status(3)
-#        return -1
-#
-#    ### check code
-#    try:
-#        update_errorlog("[%s] %s\n" % (get_now_time(), "test start try check base server code"))
-#        ret = checkcode_env(base_server+'/server01', server_svn_base)
-#    except Exception as e:
-#        update_errorlog("[%s] %s\n" % (get_now_time(), e))
-#        set_status(3)
-#        return -1
-#    if (ret != 0):
-#        set_status(3)
-#        return 4
-#    update_errorlog("[%s] %s\n" % (get_now_time(), "test server01 check code ok"))
-#
-#    ### make
-#    try:
-#        update_errorlog("[%s] %s\n" % (get_now_time(), "test start try make server01"))
-#        ret = make_env(base_server+'/server01')
-#    except Exception as e:
-#        update_errorlog("[%s] %s\n" % (get_now_time(), e))
-#        set_status(3)
-#        return -1
-#    if (ret != 0):
-#        set_status(3)
-#        return 4
-#    update_errorlog("[%s] %s\n" % (get_now_time(), "test server01 make ok"))
-#
-#    ### scp new data to test env or cp online to test env
-#    try:
-#        update_errorlog("[%s] %s\n" % (get_now_time(), "test start try to configure base server01 data"))
-#        if(os.path.exists(base_server+'/server01/server_frame/translate_server/data')):
-#                loginfo.log_info('base server01_data_dir is exist and del it')
-#                os.popen('rm -rf %s' % (test_server+'/server01/server_frame/translate_server/data'))
-#        os.symlink(ol_data_server,base_server+'/server01/server_frame/translate_server/data')
-#    except Exception as e:
-#        update_errorlog("[%s] %s\n" % (get_now_time(), e))
-#        set_status(3)
-#        return -1
-#    update_errorlog("[%s] %s\n" % (get_now_time(), "base server01 data ok"))
+    ### scp new data to test env or cp online to test env
+    try:
+        update_errorlog("[%s] %s\n" % (get_now_time(), "start try to configure base hub data"))
+        if(os.path.exists(base_hub+'/server_frame/data')):
+                loginfo.log_info('base hub_data_dir is exist and del it')
+                os.popen('rm -rf %s' % (test_hub+'/server_frame/data'))
+        os.symlink(ol_data_hub,base_hub+'/server_frame/data')
+    except Exception as e:
+        update_errorlog("[%s] %s\n" % (get_now_time(), e))
+        set_status(3)
+        return -1
+    update_errorlog("[%s] %s\n" % (get_now_time(), "base hub data ok"))
 
 
 
     ### scp new conf to test env
     try:
-        update_errorlog("[%s] %s\n" % (get_now_time(), "base server01 start to deploy cfg "))
+        update_errorlog("[%s] %s\n" % (get_now_time(), "base hub start to deploy cfg "))
         loginfo.log_info('use cfg online')
         #ret = cp_new_conf(ol_conf_path,test_path)
-        cp_cfg(ol_conf_server,base_server+'/server01/server_frame/translate_server/conf')
-#        ret = modify_hub_cfg(base_hub+'/server_frame/conf','12000','18001','18002')
+        cp_cfg(ol_conf_hub,base_hub+'/server_frame/conf')
+        ret = modify_hub_cfg(base_hub+'/server_frame/conf','12000','18001','18002')
         if ret != 0:
             set_status(3)
             return -1
@@ -1154,42 +1099,152 @@ def main():
         update_errorlog("[%s] %s\n" % (get_now_time(), e))
         set_status(3)
         return -1
-    update_errorlog("[%s] %s\n" % (get_now_time(), "test conf file ok"))
+    update_errorlog("[%s] %s\n" % (get_now_time(), "base hub conf deploy ok"))
+   
+
+    try:
+        update_errorlog("[%s] %s\n" % (get_now_time(), "start to cp start_hub.sh to base hub env"))
+        ret = cp_start_sc(base_hub+'/server_frame','hub')
+    except Exception, e:
+        update_errorlog("[%s] %s\n" % (get_now_time(), e))
+        set_status(3)
+        return -1
+    if (ret != 0):
+        set_status(3)
+        return 4
+    update_errorlog("[%s] %s\n" % (get_now_time(), "cp start.sh to base hub env ok"))
+
+
+   #server
+    try:
+        update_errorlog("[%s] %s\n" % (get_now_time(), "get base server01 svn info from job.ini"))
+        svninfo_from_job(ol_info_server,'server_job_svn')
+    except Exception as e:
+        update_errorlog("[%s] get base server01 svn info from job.ini failed\n" % get_now_time(), e)
+        set_status(3)
+        return -1
+
+    ### check code
+    try:
+        update_errorlog("[%s] %s\n" % (get_now_time(), "start try check base server01 code"))
+        ret = checkcode_env(base_server+'/server01', server_svn_base)
+    except Exception as e:
+        update_errorlog("[%s] %s\n" % (get_now_time(), e))
+        set_status(3)
+        return -1
+    if (ret != 0):
+        set_status(3)
+        return 4
+    update_errorlog("[%s] %s\n" % (get_now_time(), "base server01 check code ok"))
+
+    ### make
+    try:
+        update_errorlog("[%s] %s\n" % (get_now_time(), "test start try make base server01"))
+        ret = make_env(base_server+'/server01')
+    except Exception as e:
+        update_errorlog("[%s] %s\n" % (get_now_time(), e))
+        set_status(3)
+        return -1
+    if (ret != 0):
+        set_status(3)
+        return 4
+    update_errorlog("[%s] %s\n" % (get_now_time(), "base server01 make ok"))
+
+    ### scp new data to test env or cp online to test env
+    try:
+        update_errorlog("[%s] %s\n" % (get_now_time(), "test start try to configure base server01 data"))
+        if(os.path.exists(base_server+'/server01/server_frame/translate_server/data')):
+                loginfo.log_info('base server01_data_dir is exist and del it')
+                os.popen('rm -rf %s' % (test_server+'/server01/server_frame/translate_server/data'))
+        os.symlink(ol_data_server,base_server+'/server01/server_frame/translate_server/data')
+    except Exception as e:
+        update_errorlog("[%s] %s\n" % (get_now_time(), e))
+        set_status(3)
+        return -1
+    update_errorlog("[%s] %s\n" % (get_now_time(), "base server01 data ok"))
 
 
 
-    if basesvn.strip() !="":
-        ### start base perform
-        if (testitem == 1):
-            try:
-                ret = run_performace(base_path, "cost_base")
-                if (ret != 0):
-                    set_status(3)
-                    return -1
-            except Exception as e:
-                update_errorlog("[%s] %s\n" % (get_now_time(), e))
-                set_status(3)
-                return -1
-            if (ret != 0):
-                set_status(3)
-                return 5
+    ### scp new conf to test env
+    try:
+        update_errorlog("[%s] %s\n" % (get_now_time(), "base server01 start to deploy cfg "))
+        loginfo.log_info('use cfg online')
+        cp_cfg(ol_conf_server,base_server+'/server01/server_frame/translate_server/conf')
+        os.popen("sed -i -e 's/listen_port:.*/listen_port:%s/' %s" %('18001',base_server+'/server01/server_frame/translate_server/conf/eng_trans_server1.cfg'))
+        os.popen("sed -i -e '/gpus_to_use:.*[123]/d' %s" %(base_server+'/server01/server_frame/translate_server/conf/eng_trans_server1.cfg'))
+        if ret != 0:
+            set_status(3)
+            return -1
+    except Exception, e:
+        update_errorlog("[%s] %s\n" % (get_now_time(), e))
+        set_status(3)
+        return -1
+    update_errorlog("[%s] %s\n" % (get_now_time(), "base server01 conf file ok"))
+
+
+    ### cp start.sh to env
+    try:
+        update_errorlog("[%s] %s\n" % (get_now_time(), "start to cp start_base_server.sh to base server01 env"))
+        ret = cp_start_sc(base_server+'/server01/server_frame/translate_server','base')
+    except Exception, e:
+        update_errorlog("[%s] %s\n" % (get_now_time(), e))
+        set_status(3)
+        return -1
+    if (ret != 0):
+        set_status(3)
+        return 4
+    update_errorlog("[%s] %s\n" % (get_now_time(), "cp start.sh to base server01 env ok"))
+
+    ### deploy server02 from server01
+    try:
+        update_errorlog("[%s] %s\n" % (get_now_time(), "cp hole base server01 to base server02 and modify cfg"))
+        if os.path.exists(base_server+'/server02'):
+            update_errorlog("[%s] %s dir exists,del it\n" % (get_now_time(), 'server02'))
+            os.popen("rm -rf " + base_server+'/server02')
+        os.popen("cp -r %s  %s/" % (base_server+'/server01', base_server+'/server02'))
+        os.popen("sed -i -e 's/listen_port:.*/listen_port:%s/' %s" %('18002',base_server+'/server02/server_frame/translate_server/conf/eng_trans_server1.cfg'))
+        os.popen("sed -i -e 's/gpus_to_use:.*0/gpus_to_use:1/' %s" %(base_server+'/server02/server_frame/translate_server/conf/eng_trans_server1.cfg'))
+        if os.path.exists(base_server+'/server02/server_frame/translate_server/conf/sum_graph.cfg'):
+            update_errorlog("[%s] %s dir exists,del it\n" % (get_now_time(), 'sum_graph.cfg'))
+            os.popen("rm -rf " + base_server+'/server02/server_frame/translate_server/conf/sum_graph.cfg')
+        lns_cmd = subprocess.Popen(['ln -s sum_graph2.cfg sum_graph.cfg'], shell=True, cwd = base_server+'/server02/server_frame/translate_server/conf', stdout = subprocess.PIPE,stderr = subprocess.PIPE)
+        lns_cmd.wait()
+        if (lns_cmd.returncode == 0):
+            update_errorlog("[%s] sum_graph.cfg make link success \n" % get_now_time())
+        else:
+            update_errorlog("[%s] sum_graph.cfg make link error \n" % get_now_time())
+    except Exception, e:
+        update_errorlog("[%s] %s\n" % (get_now_time(), e))
+        set_status(3)
+        return -1
+    update_errorlog("[%s] %s\n" % (get_now_time(), "cp hole base server01 to base server02 success"))
+
+    # init start env (4 server 2 hub)
+    try:
+        ret = initEnv(root_path)
+        if (ret != 0):
+            set_status(3)
+            return -1
+    except Exception as e:
+        update_errorlog("[%s] %s\n" % (get_now_time(), e))
+        set_status(3)
+        return -1
+    # send request and diff result
+    try:
+        ret = sendReqAndDiff(root_path,fromlan,tolan)
+        if (ret != 0):
+            set_status(3)
+            return -1
+    except Exception as e:
+        update_errorlog("[%s] %s\n" % (get_now_time(), e))
+        set_status(3)
+        return -1
+
+    if (ret != 0):
+        set_status(3)
+        return 5
     
-    if testsvn.strip() !="":
-        ### start test perform
-        if (testitem == 1):
-            try:
-                ret = run_performace(test_path, "cost_test")
-                if (ret != 0):
-                    set_status(3)
-                    return -1
-            except Exception as e:
-                update_errorlog("[%s] %s\n" % (get_now_time(), e))
-                set_status(3)
-                return -1
-            if (ret != 0):
-                set_status(3)
-                return 5
-    set_status(4)
+    #set_status(4)
     return 0
 
 

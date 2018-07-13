@@ -36,6 +36,7 @@ online_job_server="tmp_info/server"
 
 start_sc_test = os.path.join(root_path, "tools/start_test_server.sh")
 start_sc_base = os.path.join(root_path, "tools/start_base_server.sh")
+start_sc_hub = os.path.join(root_path, "tools/start_hub.sh")
 
 #press conf
 sggp_path = os.path.join(root_path, "tools/sggp")
