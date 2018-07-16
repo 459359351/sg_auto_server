@@ -1244,7 +1244,7 @@ def main():
         set_status(3)
         return 5
     
-    #set_status(4)
+    set_status(4)
     return 0
 
 

@@ -58,6 +58,34 @@ def insert_diff_data(diffcontent,diffnum,diff_task_id):
         pass
     db.close()
 
+def parseXmlReq(xml_str):
+    query_lst_info=dict()
+    if xml_str=="":
+        return query_lst_info
+    xmlns={'soapenv':'http://schemas.xmlsoap.org/soap/envelope/',
+         'v2':'http://api.microsofttranslator.com/V2'}
+    try:
+        root=ElementTree.fromstring(xml_str)
+    except Exception,e:
+        query_lst_info['wrongreq']='wrong request,reson:'+str(e)
+        return query_lst_info
+    for node in root.findall('soapenv:Body',xmlns):
+        for Translate in node.findall('v2:Translate',xmlns):
+            if Translate.find('v2:text',xmlns) is not None:
+                query_lst_info['qtext']=Translate.find('v2:text',xmlns).text.encode('utf-8')
+            else:
+                query_lst_info['qtext']=''
+            if Translate.find('v2:from',xmlns) is not None:
+                query_lst_info['qfrom']=Translate.find('v2:from',xmlns).text.encode('utf-8')
+            else:
+                query_lst_info['qfrom']=''
+            if Translate.find('v2:to',xmlns) is not None:
+                query_lst_info['qto']=Translate.find('v2:to',xmlns).text.encode('utf-8')
+            else:
+                query_lst_info['qto']=''
+    return query_lst_info
+
+
 def parseXmlRes(xml_str):
     result_dic=dict()
     ns={'parent':'http://schemas.xmlsoap.org/soap/envelope/','child':'http://fanyi.sogou.com/'}
@@ -73,7 +101,7 @@ def parseXmlRes(xml_str):
             for body in node.findall('child:TranslateResponse',ns):
                 if body.find('child:TranslateResult',ns) is not None:
                     if body.find('child:TranslateResult',ns).text is not None:
-                        result_dic['transRes']=body.find('child:TranslateResult',ns).text
+                        result_dic['transRes']=body.find('child:TranslateResult',ns).text+str(tempNum)
                     else:
                         result_dic['transRes']='Error request'
                 else:
@@ -101,7 +129,7 @@ def decodeHtml(input_str):
     return s
 
 
-def getDiff(query_tools_path,filename,fromlang,tolang,mission_id):
+def getDiff(query_tools_path,filename,mission_id):
     base_diff_content = ''
     test_diff_content = ''
     tmp = 0
@@ -111,8 +139,9 @@ def getDiff(query_tools_path,filename,fromlang,tolang,mission_id):
         for item in fin.readlines():
             finished +=1
             item = item.strip()
-            #query = getUniNum(item)
-            xmldata = '''<?xml version="1.0" encoding="UTF-8"?><soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:v2="http://api.microsofttranslator.com/V2"><soapenv:Header/><soapenv:Body><v2:Translate><v2:appId></v2:appId><v2:text>{_reqtext}</v2:text><v2:from>{_fromlan}</v2:from><v2:to>{_tolan}</v2:to><v2:needQc>0</v2:needQc><v2:contentType>text/plain</v2:contentType><v2:category>general</v2:category></v2:Translate></soapenv:Body></soapenv:Envelope>'''.format(_reqtext=item, _fromlan=fromlang, _tolan=tolang)
+            reqInfo = parseXmlReq(item)
+            print reqInfo['qtext']
+            xmldata = item
             result_base=dict()
             result_test=dict()
             try:
@@ -132,10 +161,10 @@ def getDiff(query_tools_path,filename,fromlang,tolang,mission_id):
             allo.write('base:'+resp_base.text+'result:'+result_base['transRes']+'\n')
             allo.write('base:'+resp_test.text+'result:'+result_test['transRes']+'\n')
             if (result_base['transRes'] != result_test['transRes']):
-                base_diff_content += ('Query:'+item.decode('utf-8')+'\n'+result_base['transRes']+'\n')
-                test_diff_content += ('Query:'+item.decode('utf-8')+'\n'+result_test['transRes']+'\n')
-                fw_base.write('Query:'+item.decode('utf-8')+'\n'+result_base['transRes']+'\n')
-                fw_test.write('Query:'+item.decode('utf-8')+'\n'+result_test['transRes']+'\n')
+                base_diff_content += ('Query:'+reqInfo['qtext']+' from:'+reqInfo['qfrom']+' to:'+reqInfo['qto']+'\n'+result_base['transRes']+'\n')
+                test_diff_content += ('Query:'+reqInfo['qtext']+' from:'+reqInfo['qfrom']+' to:'+reqInfo['qto']+'\n'+result_test['transRes']+'\n')
+                fw_base.write('Query:'+reqInfo['qtext']+'from:'+reqInfo['qfrom']+'to:'+reqInfo['qto']+'\n'+result_base['transRes']+'\n')
+                fw_test.write('Query:'+reqInfo['qtext']+'from:'+reqInfo['qfrom']+'to:'+reqInfo['qto']+'\n'+result_test['transRes']+'\n')
                 tmp+=1
                 diffnum+=1
             if tmp == 50:
@@ -168,4 +197,4 @@ if __name__ == '__main__':
     queryFile = sys.argv[1]
     from_lang = 'zh-CHS'
     to_lang = 'ja'
-    getDiff('/search/odin/daemon/translate/tools/',queryFile,from_lang,to_lang,22)
+    getDiff('/search/odin/daemon/translate/tools/',queryFile,27)
