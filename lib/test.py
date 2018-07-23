@@ -71,7 +71,7 @@ def parseXmlRes(xml_str):
             for body in node.findall('child:TranslateResponse',ns):
                 if body.find('child:TranslateResult',ns) is not None:
                     if body.find('child:TranslateResult',ns).text is not None:
-                        result_dic['transRes']=body.find('child:TranslateResult',ns).text
+                        result_dic['transRes']=body.find('child:TranslateResult',ns).text + str(tempNum)
                     else:
                         result_dic['transRes']='Error request'
                 else:
@@ -114,13 +114,13 @@ def getDiff(query_tools_path,filename,fromlang,tolang,mission_id):
             result_base=dict()
             result_test=dict()
             try:
-                resp_base = requests.post('http://10.153.51.61:12000/xml', data=xmldata)
+                resp_base = requests.post('http://10.153.51.60:12000/xml', data=xmldata)
                 result_base = parseXmlRes(resp_base.text)
             except Exception as e :
                 result_base['transRes']='base request http error'
                 pass
             try:
-                resp_test = requests.post('http://10.153.51.61:12001/xml', data=xmldata)
+                resp_test = requests.post('http://10.153.51.60:12001/xml', data=xmldata)
                 result_test = parseXmlRes(resp_test.text)
             except Exception as e :
                 result_test['transRes']='test request http error'
@@ -164,6 +164,6 @@ def getDiff(query_tools_path,filename,fromlang,tolang,mission_id):
 
 if __name__ == '__main__':
     queryFile = sys.argv[1]
-    from_lang = 'zh-CHS'
-    to_lang = 'ja'
-    getDiff('/search/odin/daemon/fanyi/tools/',queryFile,from_lang,to_lang,22)
+    from_lang = 'ja'
+    to_lang = 'zh-CHS'
+    getDiff('/search/odin/daemon/fanyi/tools/',queryFile,from_lang,to_lang,32)

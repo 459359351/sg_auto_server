@@ -1,5 +1,7 @@
+lib/log/
 /log
 *.pyc
 *.bak
 nohup.out
 .idea/
+result/
