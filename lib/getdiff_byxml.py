@@ -145,6 +145,7 @@ def getDiff(query_tools_path,filename,mission_id,base_url,test_url):
     finished = 0
     diffnum = 0
     with open(query_tools_path+'query/'+filename,'r') as fin,open(query_tools_path+'result_log/'+'base_res_'+str(mission_id),'w') as fw_base,open(query_tools_path+'result_log/'+'test_res_'+str(mission_id),'w') as fw_test,open(query_tools_path+'result_log/'+'all_req_'+str(mission_id),'w') as allo:
+        set_status(2)
         for item in fin.readlines():
             finished +=1
             item = item.strip()
@@ -201,6 +202,7 @@ def getDiff(query_tools_path,filename,mission_id,base_url,test_url):
         except Exception as e:
             print e
         insert_finished(finished,mission_id)
+        set_status(4)
 
 def getInfoFromDb(task_id):
     update_errorlog("[%s] Get task info from db by id \n" % get_now_time())
@@ -294,9 +296,22 @@ def set_status(stat):
     cursor.execute(sql)
     db.commit()
 
+def set_subpid(subpid,status):
+    db = pymysql.connect('10.134.110.163','root','Zhangjj@sogou123','sogotest')
+    cursor = db.cursor()
+    sql = "UPDATE %s set start_time='%s',runningPID='%s',status=%d where id=%d;" % (database_table, get_now_time(),subpid, status,int(task_id))
+    cursor.execute(sql)
+    try:
+        db.commit()
+        logstr.log_info('Update PID task ,sql is '+ sql)
+    except Exception as e:
+        db.rollback()
+        logstr.log_info('Update PID task failed')
+
 if __name__ == '__main__':
     logstr = logUtils.logutil(task_id)
-    set_status(1)
+    subpid = os.getpid()
+    set_subpid(subpid,1)
     (test_url,base_url,queryip,queryuser,querypassw,querypath) = getInfoFromDb(task_id)
     filelist = getQueryFile(root_path)
     getDiff(root_path,filelist,task_id,base_url,test_url)
