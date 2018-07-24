@@ -308,6 +308,26 @@ def set_subpid(subpid,status):
         db.rollback()
         logstr.log_info('Update PID task failed')
 
+def sendMail(title,mail_body,tlist,attname,attbody):
+    mail_url = 'http://mail.portal.sogou/portal/tools/send_mail.php'
+    mail_Info = {
+    'uid' : "zhangjingjun@sogou-inc.com",
+    'fr_name' : 'Fyxml Autodiff',
+    'fr_addr' : "zhangjingjun@sogou-inc.com",
+    'title' : title.encode('GBK'),
+    'body' : mail_body.encode('GBK'), #use nl2br to adjust html-mail content.
+    'mode' : "html",
+    'maillist' : tlist,
+    'attname' : attname,
+    'attbody' : attbody
+    }
+    try:
+        response = requests.get(mail_url,params=mail_Info)
+        logstr.log_info('send mail success')
+    except Exception as e:
+        logstr.log_info("Send Mail ERROR. %s" % (e))
+template_mail = """<html><head><style type="text/css">table{border-collapse:collapse;margin:0 auto;text-align:center;}table td,table th{border:1px solid #cad9ea;color:#666;height:30px;}table thead th{background-color:#CCE8EB;width:100px;}table tr:nth-child(odd){background:#fff;}table tr:nth-child(even){background:#F5FAFA;}</style></head><table width='90%' class='table'><thead><tr><th>ID</th><th>StartTime</th><th>EndTime</th><th>test_url</th><th>base_url</th><th>Finished</th><th>DiffNum</th><th>DiffRate(%)</th><th>Testtag</th><th>Detail</th></tr></thead>"""
+temp_format = """<tr><td>%s</td><td>%s</td><td>%s</td><td>%s</td><td>%s</td><td>%s</td><td>%s</td><td>%s</td><td>%s</td><td><a href="http://frontqa.web.sjs.ted/fy_xmldetail?tasknum=%d">Detail</a></td></tr></table></body></html>"""
 if __name__ == '__main__':
     logstr = logUtils.logutil(task_id)
     subpid = os.getpid()
@@ -315,3 +335,21 @@ if __name__ == '__main__':
     (test_url,base_url,queryip,queryuser,querypassw,querypath) = getInfoFromDb(task_id)
     filelist = getQueryFile(root_path)
     getDiff(root_path,filelist,task_id,base_url,test_url)
+    # send result by mail
+    db = pymysql.connect('10.134.110.163','root','Zhangjj@sogou123','sogotest')
+    cursor = db.cursor()
+    sql = "SELECT id,start_time,end_time,test_url,base_url,user,diffnum,finished,testtag FROM %s where id='%d'" % ('fanyi_fyxmldiff',task_id)
+    cursor.execute(sql)
+    (id,start_time,end_time,test_url,base_url,task_user,diffnum,finished,testtag) = cursor.fetchone()
+    attname=''
+    attbody=''
+    tlist=list()
+    tlist.append(task_user+'@Sogou-inc.com')
+    title = '翻译XML自动化diff详情'
+    result=0
+    if finished!=0:
+        result = round(float(diffnum)/float(finished)*100,2)
+        mail_body = template_mail+ temp_format % (id,start_time,end_time,test_url,base_url,finished,diffnum,result,testtag,int(id))
+    else:
+        mail_body = template_mail+ temp_format % (id,start_time,end_time,test_url,base_url,finished,diffnum,'0',testtag,int(id))
+    sendMail(title,mail_body,tlist,attname,attbody)
