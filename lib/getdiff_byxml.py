@@ -110,7 +110,7 @@ def parseXmlRes(xml_str):
             for body in node.findall('child:TranslateResponse',ns):
                 if body.find('child:TranslateResult',ns) is not None:
                     if body.find('child:TranslateResult',ns).text is not None:
-                        result_dic['transRes']=body.find('child:TranslateResult',ns).text+str(tempNum)
+                        result_dic['transRes']=body.find('child:TranslateResult',ns).text
                     else:
                         result_dic['transRes']='Error request'
                 else:
@@ -292,7 +292,7 @@ def update_errorlog(log):
 def set_status(stat):
     db = pymysql.connect('10.134.110.163','root','Zhangjj@sogou123','sogotest')
     cursor = db.cursor()
-    sql = "UPDATE %s set status=%d, end_time='%s' where id=%d" % (database_table, stat, get_now_time(), task_id)
+    sql = "UPDATE %s set status=%d where id=%d" % (database_table, stat, task_id)
     cursor.execute(sql)
     db.commit()
 
