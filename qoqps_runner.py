@@ -88,6 +88,7 @@ def set_status(stat):
             data[0], data[1], data[2], data[3].replace('\n', '<br>'), data[4].replace('\n', '<br>'), int(data[0]))
         maillist = data[5] + "@sogou-inc.com"
         Email.sendEmail(fr_name, title, body, maillist)
+        update_errorlog("[%s] send a successful email to [%s] \n" % (get_now_time(), data[5]))
     elif stat == 3:
         sql_User = "SELECT id, start_time, end_time,user FROM %s where id='%d'" % (database_table, mission_id)
         cursor.execute(sql_User)
@@ -99,6 +100,7 @@ def set_status(stat):
         body = body_head + body_content % (data[0], data[1], data[2], int(data[0]))
         maillist = data[3] + "@sogou-inc.com"
         Email.sendEmail(fr_name, title, body, maillist)
+        update_errorlog("[%s] send a failed email to [%s] \n" % (get_now_time(), data[3]))
 
 
 def clean_proc():
