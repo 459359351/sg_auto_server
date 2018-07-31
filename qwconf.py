@@ -1,12 +1,12 @@
 #! /usr/bin/env python
 #coding=utf-8
-#status�������״̬��0:δ��ʼ��1:�ѷ��䣻2�������У�3:����ֹͣ��4:����ɣ�5:����ȡ����6:׼��ȡ����
+#status：任务的状态（0:未开始；1:已分配；2正在运行；3:出错停止；4:已完成；5:任务取消；6:准备取消）
 import os
 
-autoqps_path = "/search/odin/daemon/automission/webqw"
+autoqps_path = "/search/odin/daemon/automission/webqw"  # 工具路径地址
 
-online_host = "rsync.webqw01.web.1.djt.ted"
-online_path = "/search/odin/daemon/qw"
+online_host = "rsync.webqw01.web.1.djt.ted"  # 线上host
+online_path = "/search/odin/daemon/qw"      # 线上路径
 
 #offline_host = "rsync.datatest01.web.sjs.ted"
 #offline_path = "/search/odin/autotest/query"
@@ -18,19 +18,19 @@ online_path = "/search/odin/daemon/qw"
 
 #output = os.popen("sogou-host -a | head -1")
 #local_ip = output.read().replace('\n', '')
-local_ip='10.134.100.44'
-root_path="/search/odin/daemon/webqw/"
+local_ip='10.134.100.44'                        # 本地ip
+root_path="/search/odin/daemon/webqw/"          # 本地地址
 
-test_path_1="qw_test"
-base_path_1="qw_base"
+test_path_1="qw_test"                           # 本地测试路径
+base_path_1="qw_base"                           # 线上测试路径
 
-ol_data_path_1="/search/summary_o/webqw"
-ol_conf_path_1="tmp_conf"
+ol_data_path_1="/search/summary_o/webqw"        # 线上数据文件
+ol_conf_path_1="tmp_conf"                       # 线上配置文件
 
-black_data_path="/search/odin/daemon/black_agent/data"
+black_data_path="/search/odin/daemon/black_agent/data"          # 黑名单数据存放位置
 
-cost_tool = os.path.join(root_path, "tools/log_analysis.py")
-start_sc = os.path.join(root_path, "tools/start.sh")
+cost_tool = os.path.join(root_path, "tools/log_analysis.py")    # cost分析工具存放位置
+start_sc = os.path.join(root_path, "tools/start.sh")            # sggp压力工具启动文件
 
 #press conf
 sggp_path = os.path.join(root_path, "tools/sggp")
