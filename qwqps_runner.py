@@ -14,6 +14,7 @@ from lib import asycommands
 from lib import svnpkg
 from lib import makelink
 from lib import Email
+#from lib import scpFiles
 
 import psutil
 import hashlib
@@ -29,6 +30,29 @@ mission_id = int(sys.argv[1])
 asycmd_list = list()
 proc_list = list()
 
+def scp_diff_conf(file_path, newconfip, newconfuser, newconfpassw, newconfpath):
+    update_errorlog("[%s] try scp rd longdiff_query to test enviroment\n" % get_now_time())
+    if os.path.exists(file_path + "/longdiff/longdiff_query"):
+        update_errorlog("[%s] %s\n" % (get_now_time(), "cfg  exists, del it"))
+        os.popen("rm -rf " + file_path + "/longdiff/longdiff_query")
+
+    passwd_key = '.*assword.*'
+
+    cmdline = 'scp -r %s@%s:%s %s/' % (newconfuser, newconfip, newconfpath, file_path + '/longdiff')
+    try:
+        child = pexpect.spawn(cmdline)
+        expect_result = child.expect([r'assword:', r'yes/no'], timeout=30)
+        if expect_result == 0:
+            child.sendline(newconfpassw)
+        elif expect_result == 1:
+            child.sendline('yes')
+            child.expect(passwd_key, timeout=30)
+            child.sendline(newconfpassw)
+        child.expect(pexpect.EOF)
+    except Exception as e:
+        update_errorlog("[%s] %s, scp rd qw.cfg failed \n" % (get_now_time(), e))
+    update_errorlog("[%s] try scp rd qw.cfg to test enviroment success\n" % get_now_time())
+    return 0
 
 def get_now_time():
     timeArray = time.localtime()
@@ -1014,4 +1038,5 @@ signal.signal(10, sig_handler)
 signal.signal(15, sig_handler)
 
 if __name__ == '__main__':
-    main()
+    #main()
+    scp_diff_conf("/search/odin/daemon","webqw01.web.djt.ted","guest","Sogou@)!$","/opt/guest/longdiff_query")
