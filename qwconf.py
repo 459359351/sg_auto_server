@@ -32,6 +32,9 @@ black_data_path="/search/odin/daemon/black_agent/data"          # 黑名单数�
 cost_tool = os.path.join(root_path, "tools/log_analysis.py")    # cost分析工具存放位置
 start_sc = os.path.join(root_path, "tools/start.sh")            # sggp压力工具启动文件
 
+# diff配置文件
+diff_path="/search/odin/daemon/longdiff"
+
 #press conf
 sggp_path = os.path.join(root_path, "tools/sggp")
 sggp_query_path = os.path.join(root_path, "tools/sggp/data/")
