@@ -586,8 +586,7 @@ def performance_once(file_path, performance_result, cost_type):
     if (ret < 0):
         bakfile = runlogbak + cost_type + '_starterr_' + str(mission_id)
         os.popen("cp %s %s" % (file_path + '/QueryOptimizer/err.log', bakfile))
-        update_errorlog(
-            "[%s] %s webqw Start error, errlog path %s s\n" % (get_now_time(), cost_type, local_ip + runlogbak))
+        update_errorlog("[%s] %s webqw Start error, errlog path %s s\n" % (get_now_time(), cost_type, local_ip + runlogbak))
         for fname in os.listdir(file_path + '/QueryOptimizer'):
             if 'core' in fname:
                 corefile = runlogbak + cost_type + '_startcore_' + str(mission_id)
@@ -609,7 +608,7 @@ def performance_once(file_path, performance_result, cost_type):
     sql = "SELECT testitem FROM %s WHERE id='%d' " % (database_table, mission_id)
     cursor.execute(sql)
     data = cursor.fetchone()
-    if int(data[0]) == 1:
+    if data[0] == '1':
 
         # Start PressTool
         log = []
@@ -637,13 +636,14 @@ def performance_once(file_path, performance_result, cost_type):
         for subpid in tools_pid:
             wait_to_die(subpid, 5 * 30, file_path, cost_type)
         update_errorlog("[%s] PressTool stoped\n" % get_now_time())
-    elif int(data[0]) == 0:
+
+    elif data[0] == '0':
         diff_result = longDiff.diff_query()
         update_sql = "UPDATE %s set diff_content=%s where id=%d" % ('webqw_webqwqps', diff_result, mission_id)
         try:
             cursor.execute(update_sql)
             db.commit()
-            print("插入diff数据成功！")
+            update_errorlog("插入diff数据成功！")
         except Exception as e:
             print e
 
