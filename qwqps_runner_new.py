@@ -14,6 +14,8 @@ from lib import asycommands
 from lib import svnpkg
 from lib import makelink
 from lib import Email
+from lib import scpFiles
+from lib import longDiff
 
 import psutil
 import hashlib
@@ -30,6 +32,31 @@ asycmd_list = list()
 proc_list = list()
 
 
+def scp_diff_conf(file_path, newconfip, newconfuser, newconfpassw, newconfpath):
+    update_errorlog("[%s] try scp rd longdiff_query to test enviroment\n" % get_now_time())
+    if os.path.exists(file_path + "/longdiff/longdiff_query"):
+        update_errorlog("[%s] %s\n" % (get_now_time(), "cfg  exists, del it"))
+        os.popen("rm -rf " + file_path + "/longdiff/longdiff_query")
+
+    passwd_key = '.*assword.*'
+
+    cmdline = 'scp -r %s@%s:%s %s/' % (newconfuser, newconfip, newconfpath, file_path + '/longdiff')
+    try:
+        child = pexpect.spawn(cmdline)
+        expect_result = child.expect([r'assword:', r'yes/no'], timeout=30)
+        if expect_result == 0:
+            child.sendline(newconfpassw)
+        elif expect_result == 1:
+            child.sendline('yes')
+            child.expect(passwd_key, timeout=30)
+            child.sendline(newconfpassw)
+        child.expect(pexpect.EOF)
+    except Exception as e:
+        update_errorlog("[%s] %s, scp rd qw.cfg failed \n" % (get_now_time(), e))
+    update_errorlog("[%s] try scp rd qw.cfg to test enviroment success\n" % get_now_time())
+    return 0
+
+
 def get_now_time():
     timeArray = time.localtime()
     return time.strftime("%Y-%m-%d %H:%M:%S", timeArray)
@@ -39,7 +66,7 @@ def get_material():
     # newconfpath | newconfip | newconfpassw | newconfuser | newdataip | newdatapassw | newdatauser | newdatapath | newdata_topath
 
     sql = "SELECT testsvn, basesvn, testitem, newconfip, newconfuser, newconfpassw, newconfpath, newdataip, newdatauser, newdatapassw, newdatapath, newdata_topath, press_qps, press_time, press_expid, press_rate FROM %s where id='%d'" % (
-    database_table, mission_id)
+        database_table, mission_id)
     cursor.execute(sql)
     data = cursor.fetchone()
     sql = "UPDATE %s set start_time='%s', status = 2 where id=%d" % (database_table, get_now_time(), mission_id)
@@ -76,7 +103,7 @@ def set_status(stat):
     fr_name = 'Webqw'
     if stat == 4:
         sql_User = "SELECT id, start_time, end_time, cost_test, cost_base ,user FROM %s where id='%d'" % (
-        database_table, mission_id)
+            database_table, mission_id)
         cursor.execute(sql_User)
         data = cursor.fetchone()
         title = 'Webqw Performance Test Result'
@@ -84,7 +111,7 @@ def set_status(stat):
 
         body_content = """<tr><td>%s</td><td>%s</td><td>%s</td><td>%s</td><td>%s</td><td><a href="http://frontqa.web.sjs.ted/qo_task_detail_%d.html">details</a></td></tr></table></body></html>"""
         body = body_head + body_content % (
-        data[0], data[1], data[2], data[3].replace('\n', '<br>'), data[4].replace('\n', '<br>'), int(data[0]))
+            data[0], data[1], data[2], data[3].replace('\n', '<br>'), data[4].replace('\n', '<br>'), int(data[0]))
         maillist = data[5] + "@sogou-inc.com"
         Email.sendEmail(fr_name, title, body, maillist)
         update_errorlog("[%s] send a successful email to [%s] \n" % (get_now_time(), data[5]))
@@ -514,7 +541,7 @@ def set_content_to_x(content, cost_type):
     elif (type(content) == type(total_content)):
         total_content = content
     sql = "UPDATE %s set %s='%s' where id=%d" % (
-    database_table, cost_type, total_content.decode('gbk').encode('utf8'), mission_id)
+        database_table, cost_type, total_content.decode('gbk').encode('utf8'), mission_id)
     cursor.execute(sql)
     db.commit()
 
@@ -566,7 +593,7 @@ def performance_once(file_path, performance_result, cost_type):
                 corefile = runlogbak + cost_type + '_startcore_' + str(mission_id)
                 os.popen("cp %s %s" % (file_path + '/QueryOptimizer/core.*', corefile))
                 update_errorlog("[%s] %s webqw Start core, core file path %s s\n" % (
-                get_now_time(), cost_type, local_ip + runlogbak))
+                    get_now_time(), cost_type, local_ip + runlogbak))
         time.sleep(0.5)
         up_log = ""
         for line in log:
@@ -579,33 +606,46 @@ def performance_once(file_path, performance_result, cost_type):
         return -1
     update_errorlog("[%s] %s webqw Start OK, cost %d s, PID %s \n" % (get_now_time(), cost_type, ret, str(service_pid)))
 
-    # Start PressTool
-    log = []
-    update_errorlog("[%s] Begin start PressTool\n" % get_now_time())
-    if cost_type == 'cost_test':
-        (ret, tools_pid) = sggp_lanch(sggp_path, "start_qw_test.sh", log)
-    else:
-        (ret, tools_pid) = sggp_lanch(sggp_path, "start_qw_base.sh", log)
-    print
-    ret, tools_pid
-    if (ret < 0):
-        time.sleep(0.5)
-        up_log = ""
-        for line in log:
-            up_log += "[%s] %s" % (get_now_time(), line + '\n')
-        update_errorlog("%s\n" % (up_log))
-        up_log = ""
-        for iotype, line in asycmd.execute_with_data(['/bin/tail', '-50', sggp_path + "/err"], shell=False):
-            up_log += line + '\n'
-        update_errorlog(up_log.decode('gbk').encode('utf-8').replace("'", "\\'"))
-        return -1
-    update_errorlog("[%s] PressTool Start OK, PIDs %s\n" % (get_now_time(), str(tools_pid)))
-    update_errorlog("[%s] Wait PressTool...\n" % get_now_time())
+    sql = "SELECT testitem FROM %s WHERE id='%d' " % (database_table, mission_id)
+    cursor.execute(sql)
+    data = cursor.fetchone()
+    if data[0] == 1:
 
-    # Wait PressTool Stop
-    for subpid in tools_pid:
-        wait_to_die(subpid, 5 * 30, file_path, cost_type)
-    update_errorlog("[%s] PressTool stoped\n" % get_now_time())
+        # Start PressTool
+        log = []
+        update_errorlog("[%s] Begin start PressTool\n" % get_now_time())
+        if cost_type == 'cost_test':
+            (ret, tools_pid) = sggp_lanch(sggp_path, "start_qw_test.sh", log)
+        else:
+            (ret, tools_pid) = sggp_lanch(sggp_path, "start_qw_base.sh", log)
+        print ret, tools_pid
+        if (ret < 0):
+            time.sleep(0.5)
+            up_log = ""
+            for line in log:
+                up_log += "[%s] %s" % (get_now_time(), line + '\n')
+            update_errorlog("%s\n" % (up_log))
+            up_log = ""
+            for iotype, line in asycmd.execute_with_data(['/bin/tail', '-50', sggp_path + "/err"], shell=False):
+                up_log += line + '\n'
+            update_errorlog(up_log.decode('gbk').encode('utf-8').replace("'", "\\'"))
+            return -1
+        update_errorlog("[%s] PressTool Start OK, PIDs %s\n" % (get_now_time(), str(tools_pid)))
+        update_errorlog("[%s] Wait PressTool...\n" % get_now_time())
+
+        # Wait PressTool Stop
+        for subpid in tools_pid:
+            wait_to_die(subpid, 5 * 30, file_path, cost_type)
+        update_errorlog("[%s] PressTool stoped\n" % get_now_time())
+    elif data[0] == 0:
+        diff_result = longDiff.diff_query()
+        update_sql = "UPDATE %s set diff_content=%s where id=%d" % ('webqw_webqwqps', diff_result, mission_id)
+        try:
+            cursor.execute(update_sql)
+            db.commit()
+            print("插入diff数据成功！")
+        except Exception as e:
+            print e
 
     # Stop webqw
     stop_proc(service_pid)
@@ -744,8 +784,10 @@ def main():
     loginfo.log_info("mission_id:" + str(mission_id))
 
     (
-    testsvn, basesvn, testitem, newconfip, newconfuser, newconfpassw, newconfpath, newdataip, newdatauser, newdatapassw,
-    newdatapath, newdata_topath, press_qps, press_time, press_expid, press_rate) = get_material()
+        testsvn, basesvn, testitem, newconfip, newconfuser, newconfpassw, newconfpath, newdataip, newdatauser,
+        newdatapassw,
+        newdatapath, newdata_topath, press_qps, press_time, press_expid, press_rate, query_ip, query_user, query_pwd,
+        query_path) = get_material()
 
     loginfo.log_info("testsvn:" + testsvn)
     loginfo.log_info("basesvn:" + basesvn)
@@ -772,13 +814,16 @@ def main():
     #        set_status(3)
     #        return -1
 
-    ret_configure_sggp_test = configure_sggp_test(sggp_path, press_qps, press_time, press_expid, press_rate)
-    if ret_configure_sggp_test != 0:
-        update_errorlog("[%s] %s\n" % (get_now_time(), "configure sggp_conf has some error, pls check"))
-        set_status(3)
-        return -1
+    if testitem == 1:
+        ret_configure_sggp_test = configure_sggp_test(sggp_path, press_qps, press_time, press_expid, press_rate)
+        if ret_configure_sggp_test != 0:
+            update_errorlog("[%s] %s\n" % (get_now_time(), "configure sggp_conf has some error, pls check"))
+            set_status(3)
+            return -1
+    elif testitem == 0:
+        scp_diff_conf("/search/odin/daemon", "query_ip", "query_user", "query_pwd", "query_path")
 
-    #    ret_sync_ol_data = sync_ol_data_to_local(ol_data_path+"/data")
+    # ret_sync_ol_data = sync_ol_data_to_local(ol_data_path+"/data")
     #    if ret_sync_ol_data != 0:
     #        update_errorlog("[%s] %s\n" % (get_now_time(), "sync_ol_data_to_local has some error, pls check"))
     #        set_status(3)
@@ -892,8 +937,6 @@ def main():
             set_status(3)
             return 4
         update_errorlog("[%s] %s\n" % (get_now_time(), "test  cp start.sh to test env ok"))
-
-
 
     ###### just run base
     if basesvn.strip() != "":
@@ -1015,3 +1058,4 @@ signal.signal(15, sig_handler)
 
 if __name__ == '__main__':
     main()
+    # scpFiles.scp_diff_conf()
