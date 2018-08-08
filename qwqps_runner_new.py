@@ -22,6 +22,7 @@ import signal
 import pexpect
 import shutil
 import urllib
+import cgi
 
 db = pymysql.connect(database_host, database_user, database_pass, database_data)
 cursor = db.cursor()
@@ -590,8 +591,8 @@ def run_diff(file_path,cost_type):
     update_errorlog("[%s] %s webqw Start OK, cost %d s, PID %s \n" % (get_now_time(), cost_type, ret, str(service_pid)))
 
 
-    diff_result = longDiff.diff_query()
-    update_sql = "UPDATE %s set diff_content=%s where id=%d" % ('webqw_webqwqps', diff_result, mission_id)
+    diff_result = cgi.escape(str(longDiff.diff_query()))
+    update_sql = "UPDATE %s set diff_content='%s' where id=%d" % ('webqw_webqwqps', diff_result, mission_id)
     try:
         cursor.execute(update_sql)
         db.commit()
