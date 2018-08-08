@@ -1014,35 +1014,35 @@ def main():
 
     if basesvn.strip() != "":
         ### start base perform
-        if (testitem == 1):
-            try:
-                ret = run_performace(base_path, "cost_base")
-                if (ret != 0):
-                    set_status(3)
-                    return -1
-            except Exception as e:
-                update_errorlog("[%s] %s\n" % (get_now_time(), e))
+        # if (testitem == 1):
+        try:
+            ret = run_performace(base_path, "cost_base")
+            if (ret != 0):
                 set_status(3)
                 return -1
-            if (ret != 0):
+        except Exception as e:
+            update_errorlog("[%s] %s\n" % (get_now_time(), e))
+            set_status(3)
+            return -1
+        if (ret != 0):
                 set_status(3)
                 return 5
 
     if testsvn.strip() != "":
         ### start test perform
-        if (testitem == 1):
-            try:
-                ret = run_performace(test_path, "cost_test")
-                if (ret != 0):
-                    set_status(3)
-                    return -1
-            except Exception as e:
-                update_errorlog("[%s] %s\n" % (get_now_time(), e))
-                set_status(3)
-                return -1
+        # if (testitem == 1):
+        try:
+            ret = run_performace(test_path, "cost_test")
             if (ret != 0):
                 set_status(3)
-                return 5
+                return -1
+        except Exception as e:
+            update_errorlog("[%s] %s\n" % (get_now_time(), e))
+            set_status(3)
+            return -1
+        if (ret != 0):
+            set_status(3)
+            return 5
     set_status(4)
     return 0
 
