@@ -65,7 +65,8 @@ def get_now_time():
 def get_material():
     # newconfpath | newconfip | newconfpassw | newconfuser | newdataip | newdatapassw | newdatauser | newdatapath | newdata_topath
 
-    sql = "SELECT testsvn, basesvn, testitem, newconfip, newconfuser, newconfpassw, newconfpath, newdataip, newdatauser, newdatapassw, newdatapath, newdata_topath, press_qps, press_time, press_expid, press_rate FROM %s where id='%d'" % (
+
+    sql = "SELECT testsvn, basesvn, testitem, newconfip, newconfuser, newconfpassw, newconfpath, newdataip, newdatauser, newdatapassw, newdatapath, newdata_topath, press_qps, press_time, press_expid, press_rate ,query_ip, query_user, query_pwd FROM %s where id='%d'" % (
         database_table, mission_id)
     cursor.execute(sql)
     data = cursor.fetchone()
@@ -783,11 +784,7 @@ def main():
 
     loginfo.log_info("mission_id:" + str(mission_id))
 
-    (
-        testsvn, basesvn, testitem, newconfip, newconfuser, newconfpassw, newconfpath, newdataip, newdatauser,
-        newdatapassw,
-        newdatapath, newdata_topath, press_qps, press_time, press_expid, press_rate, query_ip, query_user, query_pwd,
-        query_path) = get_material()
+    (testsvn, basesvn, testitem, newconfip, newconfuser, newconfpassw, newconfpath, newdataip, newdatauser,newdatapassw,newdatapath, newdata_topath, press_qps, press_time, press_expid, press_rate, query_ip, query_user, query_pwd,query_path) = get_material()
 
     loginfo.log_info("testsvn:" + testsvn)
     loginfo.log_info("basesvn:" + basesvn)
