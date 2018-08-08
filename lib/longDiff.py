@@ -18,7 +18,7 @@ def diff_query():
             line = line.replace("\r\n", "")
             headers = {"Content-type": "application/x-www-form-urlencoded;charset=UTF-16LE"}
             base_resp = requests.post(base, data=line, headers=headers)
-            test_resp = requests.post(base, data=line, headers=headers)
+            test_resp = requests.post(test, data=line, headers=headers)
 
             data_base.append(base_resp.text.encode("GBK"))
             data_test.append(test_resp.text.encode("GBK"))
@@ -30,7 +30,7 @@ def diff_query():
 
     diff = difflib.HtmlDiff()
 
-    data = diff.make_table(data_base_str.prettify().splitlines(), data_base_str.prettify().splitlines()).replace(
+    data = diff.make_table(data_base_str.prettify().splitlines(), data_test_str.prettify().splitlines()).replace(
         'nowrap="nowrap"', '')
 
     return data

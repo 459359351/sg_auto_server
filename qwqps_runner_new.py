@@ -15,6 +15,7 @@ from lib import svnpkg
 from lib import makelink
 from lib import Email
 from lib import scpFiles
+from lib import longDiff
 
 import psutil
 import hashlib
@@ -30,6 +31,30 @@ mission_id = int(sys.argv[1])
 asycmd_list = list()
 proc_list = list()
 
+
+def scp_diff_conf(file_path, newconfip, newconfuser, newconfpassw, newconfpath):
+    update_errorlog("[%s] try scp rd longdiff_query to test enviroment\n" % get_now_time())
+    if os.path.exists(file_path + "/longdiff/longdiff_query"):
+        update_errorlog("[%s] %s\n" % (get_now_time(), "cfg  exists, del it"))
+        os.popen("rm -rf " + file_path + "/longdiff/longdiff_query")
+
+    passwd_key = '.*assword.*'
+
+    cmdline = 'scp -r %s@%s:%s %s/' % (newconfuser, newconfip, newconfpath, file_path + '/longdiff')
+    try:
+        child = pexpect.spawn(cmdline)
+        expect_result = child.expect([r'assword:', r'yes/no'], timeout=30)
+        if expect_result == 0:
+            child.sendline(newconfpassw)
+        elif expect_result == 1:
+            child.sendline('yes')
+            child.expect(passwd_key, timeout=30)
+            child.sendline(newconfpassw)
+        child.expect(pexpect.EOF)
+    except Exception as e:
+        update_errorlog("[%s] %s, scp rd qw.cfg failed \n" % (get_now_time(), e))
+    update_errorlog("[%s] try scp rd qw.cfg to test enviroment success\n" % get_now_time())
+    return 0
 
 
 def get_now_time():
@@ -581,32 +606,46 @@ def performance_once(file_path, performance_result, cost_type):
         return -1
     update_errorlog("[%s] %s webqw Start OK, cost %d s, PID %s \n" % (get_now_time(), cost_type, ret, str(service_pid)))
 
-    # Start PressTool
-    log = []
-    update_errorlog("[%s] Begin start PressTool\n" % get_now_time())
-    if cost_type == 'cost_test':
-        (ret, tools_pid) = sggp_lanch(sggp_path, "start_qw_test.sh", log)
-    else:
-        (ret, tools_pid) = sggp_lanch(sggp_path, "start_qw_base.sh", log)
-    print ret, tools_pid
-    if (ret < 0):
-        time.sleep(0.5)
-        up_log = ""
-        for line in log:
-            up_log += "[%s] %s" % (get_now_time(), line + '\n')
-        update_errorlog("%s\n" % (up_log))
-        up_log = ""
-        for iotype, line in asycmd.execute_with_data(['/bin/tail', '-50', sggp_path + "/err"], shell=False):
-            up_log += line + '\n'
-        update_errorlog(up_log.decode('gbk').encode('utf-8').replace("'", "\\'"))
-        return -1
-    update_errorlog("[%s] PressTool Start OK, PIDs %s\n" % (get_now_time(), str(tools_pid)))
-    update_errorlog("[%s] Wait PressTool...\n" % get_now_time())
+    sql = "SELECT testitem FROM %s WHERE id='%d' " % (database_table, mission_id)
+    cursor.execute(sql)
+    data = cursor.fetchone()
+    if data[0] == 1:
 
-    # Wait PressTool Stop
-    for subpid in tools_pid:
-        wait_to_die(subpid, 5 * 30, file_path, cost_type)
-    update_errorlog("[%s] PressTool stoped\n" % get_now_time())
+        # Start PressTool
+        log = []
+        update_errorlog("[%s] Begin start PressTool\n" % get_now_time())
+        if cost_type == 'cost_test':
+            (ret, tools_pid) = sggp_lanch(sggp_path, "start_qw_test.sh", log)
+        else:
+            (ret, tools_pid) = sggp_lanch(sggp_path, "start_qw_base.sh", log)
+        print ret, tools_pid
+        if (ret < 0):
+            time.sleep(0.5)
+            up_log = ""
+            for line in log:
+                up_log += "[%s] %s" % (get_now_time(), line + '\n')
+            update_errorlog("%s\n" % (up_log))
+            up_log = ""
+            for iotype, line in asycmd.execute_with_data(['/bin/tail', '-50', sggp_path + "/err"], shell=False):
+                up_log += line + '\n'
+            update_errorlog(up_log.decode('gbk').encode('utf-8').replace("'", "\\'"))
+            return -1
+        update_errorlog("[%s] PressTool Start OK, PIDs %s\n" % (get_now_time(), str(tools_pid)))
+        update_errorlog("[%s] Wait PressTool...\n" % get_now_time())
+
+        # Wait PressTool Stop
+        for subpid in tools_pid:
+            wait_to_die(subpid, 5 * 30, file_path, cost_type)
+        update_errorlog("[%s] PressTool stoped\n" % get_now_time())
+    elif data[0] == 0:
+        diff_result = longDiff.diff_query()
+        update_sql = "UPDATE %s set diff_content=%s where id=%d" % ('webqw_webqwqps', diff_result, mission_id)
+        try:
+            cursor.execute(update_sql)
+            db.commit()
+            print("插入diff数据成功！")
+        except Exception as e:
+            print e
 
     # Stop webqw
     stop_proc(service_pid)
@@ -782,7 +821,7 @@ def main():
             set_status(3)
             return -1
     elif testitem == 0:
-        scp_new_conf("/search/odin/daemon/longdiff", "query_ip", "query_user", "query_pwd", "query_path")
+        scp_diff_conf("/search/odin/daemon", "query_ip", "query_user", "query_pwd", "query_path")
 
     # ret_sync_ol_data = sync_ol_data_to_local(ol_data_path+"/data")
     #    if ret_sync_ol_data != 0:
@@ -1018,5 +1057,5 @@ signal.signal(10, sig_handler)
 signal.signal(15, sig_handler)
 
 if __name__ == '__main__':
-    # main()
-    scpFiles.scp_diff_conf()
+    main()
+    # scpFiles.scp_diff_conf()
