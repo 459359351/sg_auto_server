@@ -35,7 +35,7 @@ proc_list = list()
 def scp_diff_conf(file_path, newconfip, newconfuser, newconfpassw, newconfpath):
     update_errorlog("[%s] try scp rd longdiff_query to test enviroment\n" % get_now_time())
     if os.path.exists(file_path + "/longdiff/longdiff_query"):
-        update_errorlog("[%s] %s\n" % (get_now_time(), "cfg  exists, del it"))
+        update_errorlog("[%s] %s\n" % (get_now_time(), "long_diffquery  exists, del it"))
         os.popen("rm -rf " + file_path + "/longdiff/longdiff_query")
 
     passwd_key = '.*assword.*'
@@ -52,8 +52,8 @@ def scp_diff_conf(file_path, newconfip, newconfuser, newconfpassw, newconfpath):
             child.sendline(newconfpassw)
         child.expect(pexpect.EOF)
     except Exception as e:
-        update_errorlog("[%s] %s, scp rd qw.cfg failed \n" % (get_now_time(), e))
-    update_errorlog("[%s] try scp rd qw.cfg to test enviroment success\n" % get_now_time())
+        update_errorlog("[%s] %s, scp rd long_diff failed \n" % (get_now_time(), e))
+    update_errorlog("[%s] try scp rd long_diff to test enviroment success\n" % get_now_time())
     return 0
 
 
@@ -784,7 +784,10 @@ def main():
 
     loginfo.log_info("mission_id:" + str(mission_id))
 
-    (testsvn, basesvn, testitem, newconfip, newconfuser, newconfpassw, newconfpath, newdataip, newdatauser,newdatapassw,newdatapath, newdata_topath, press_qps, press_time, press_expid, press_rate, query_ip, query_user, query_pwd,query_path) = get_material()
+    (
+    testsvn, basesvn, testitem, newconfip, newconfuser, newconfpassw, newconfpath, newdataip, newdatauser, newdatapassw,
+    newdatapath, newdata_topath, press_qps, press_time, press_expid, press_rate, query_ip, query_user, query_pwd,
+    query_path) = get_material()
 
     loginfo.log_info("testsvn:" + testsvn)
     loginfo.log_info("basesvn:" + basesvn)
@@ -802,6 +805,10 @@ def main():
     loginfo.log_info("press_time:" + str(press_time))
     loginfo.log_info("press_expid:" + str(press_expid))
     loginfo.log_info("press_rate:" + str(press_rate))
+    loginfo.log_info("press_rate:" + str(query_ip))
+    loginfo.log_info("press_rate:" + str(query_user))
+    loginfo.log_info("press_rate:" + str(query_pwd))
+    loginfo.log_info("press_rate:" + str(query_path))
 
     ####configure sggp/ACE_Pressure_CACHE.ini
 
@@ -818,7 +825,7 @@ def main():
             set_status(3)
             return -1
     elif testitem == 0:
-        scp_diff_conf("/search/odin/daemon", "query_ip", "query_user", "query_pwd", "query_path")
+        scp_diff_conf("/search/odin/daemon", query_ip, query_user, query_pwd, query_path)
 
     # ret_sync_ol_data = sync_ol_data_to_local(ol_data_path+"/data")
     #    if ret_sync_ol_data != 0:
@@ -1055,4 +1062,4 @@ signal.signal(15, sig_handler)
 
 if __name__ == '__main__':
     main()
-    # scpFiles.scp_diff_conf()
+    # scp_diff_conf("/search/odin/daemon","webqw01.web.djt.ted","guest","Sogou@)!$","/opt/guest/longdiff_query")

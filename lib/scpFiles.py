@@ -10,7 +10,7 @@ import pexpect
 def scp_diff_conf(file_path, newconfip, newconfuser, newconfpassw, newconfpath):
     update_errorlog("[%s] try scp rd longdiff_query to test enviroment\n" % get_now_time())
     if os.path.exists(file_path + "/longdiff/longdiff_query"):
-        update_errorlog("[%s] %s\n" % (get_now_time(), "cfg  exists, del it"))
+        update_errorlog("[%s] %s\n" % (get_now_time(), "long_diffquery  exists, del it"))
         os.popen("rm -rf " + file_path + "/longdiff/longdiff_query")
 
     passwd_key = '.*assword.*'
@@ -27,8 +27,9 @@ def scp_diff_conf(file_path, newconfip, newconfuser, newconfpassw, newconfpath):
             child.sendline(newconfpassw)
         child.expect(pexpect.EOF)
     except Exception as e:
-        update_errorlog("[%s] %s, scp rd qw.cfg failed \n" % (get_now_time(), e))
-    update_errorlog("[%s] try scp rd qw.cfg to test enviroment success\n" % get_now_time())
+        update_errorlog("[%s] %s, scp rd long_diff failed \n" % (get_now_time(), e))
+    update_errorlog("[%s] try scp rd longdiff_query to test enviroment success\n" % get_now_time())
     return 0
 
 scp_diff_conf("/search/odin/daemon", "webqw01.web.djt.ted", "guest", "Sogou@)!$", "/opt/guest/longdiff_query")
+
