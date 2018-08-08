@@ -609,7 +609,7 @@ def performance_once(file_path, performance_result, cost_type):
     sql = "SELECT testitem FROM %s WHERE id='%d' " % (database_table, mission_id)
     cursor.execute(sql)
     data = cursor.fetchone()
-    if data[0] == 1:
+    if int(data[0]) == 1:
 
         # Start PressTool
         log = []
@@ -637,7 +637,7 @@ def performance_once(file_path, performance_result, cost_type):
         for subpid in tools_pid:
             wait_to_die(subpid, 5 * 30, file_path, cost_type)
         update_errorlog("[%s] PressTool stoped\n" % get_now_time())
-    elif data[0] == 0:
+    elif int(data[0]) == 0:
         diff_result = longDiff.diff_query()
         update_sql = "UPDATE %s set diff_content=%s where id=%d" % ('webqw_webqwqps', diff_result, mission_id)
         try:
