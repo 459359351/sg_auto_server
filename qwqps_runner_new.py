@@ -531,6 +531,80 @@ def run_performace(file_path, cost_type):
     set_content_to_x(cost, cost_type)
     return 0
 
+def run_diff(file_path,cost_type):
+    asycmd = asycommands.TrAsyCommands(timeout=120)
+    asycmd_list.append(asycmd)
+    # kill lt-queryoptimiz
+    for iotype, line in asycmd.execute_with_data(['ps -ef|grep lt-queryoptimiz|grep -v grep'], shell=True):
+        if (line.find('lt-queryoptimiz') != -1):
+            pid = int(line.split()[1])
+            stop_proc(pid)
+
+    # clean Mem
+    sync_cmd = subprocess.Popen(['sync'], shell=False, cwd=file_path, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    sync_cmd.wait()
+    if (sync_cmd.returncode == 0):
+        update_errorlog("[%s] %s sync success \n" % (get_now_time(), cost_type))
+    else:
+        update_errorlog("[%s] %s sync error \n" % (get_now_time(), cost_type))
+
+    echo_three_cmd = subprocess.Popen(['echo 3 > /proc/sys/vm/drop_caches'], shell=True, stdout=subprocess.PIPE,
+                                      stderr=subprocess.PIPE)
+    echo_three_cmd.wait()
+    if (sync_cmd.returncode == 0):
+        update_errorlog("[%s] %s free mem success \n" % (get_now_time(), cost_type))
+    else:
+        update_errorlog("[%s] %s free pagecache, dentries and inodes error \n" % (get_now_time(), cost_type))
+
+    echo_one_cmd = subprocess.Popen(['echo 0 > /proc/sys/vm/drop_caches'], shell=True, stdout=subprocess.PIPE,
+                                    stderr=subprocess.PIPE)
+    echo_one_cmd.wait()
+    if (sync_cmd.returncode == 0):
+        update_errorlog("[%s] %s reset success \n" % (get_now_time(), cost_type))
+    else:
+        update_errorlog("[%s] %s reset free error \n" % (get_now_time(), cost_type))
+
+    log = []
+    # start lt-queryoptimiz
+    update_errorlog("[%s] Begin Start %s webqw\n" % (get_now_time(), cost_type))
+    (ret, service_pid) = lanch(file_path + "/QueryOptimizer", "start.sh", 8019, log)
+    if (ret < 0):
+        bakfile = runlogbak + cost_type + '_starterr_' + str(mission_id)
+        os.popen("cp %s %s" % (file_path + '/QueryOptimizer/err.log', bakfile))
+        update_errorlog("[%s] %s webqw Start error, errlog path %s s\n" % (get_now_time(), cost_type, local_ip + runlogbak))
+        for fname in os.listdir(file_path + '/QueryOptimizer'):
+            if 'core' in fname:
+                corefile = runlogbak + cost_type + '_startcore_' + str(mission_id)
+                os.popen("cp %s %s" % (file_path + '/QueryOptimizer/core.*', corefile))
+                update_errorlog("[%s] %s webqw Start core, core file path %s s\n" % (get_now_time(), cost_type, local_ip + runlogbak))
+        time.sleep(0.5)
+        up_log = ""
+        for line in log:
+            up_log += "[%s] %s" % (get_now_time(), line + '\n')
+        update_errorlog("%s\n" % (up_log))
+        for iotype, line in asycmd.execute_with_data(['/bin/tail', '-50', file_path + "/QueryOptimizer/err.log"],
+                                                     shell=False):
+            up_log += line + '\n'
+        update_errorlog(up_log.decode('gbk').encode('utf-8').replace("'", "\\'"))
+        return -1
+    update_errorlog("[%s] %s webqw Start OK, cost %d s, PID %s \n" % (get_now_time(), cost_type, ret, str(service_pid)))
+
+
+    diff_result = longDiff.diff_query()
+    update_sql = "UPDATE %s set diff_content=%s where id=%d" % ('webqw_webqwqps', diff_result, mission_id)
+    try:
+        cursor.execute(update_sql)
+        db.commit()
+        update_errorlog("insert diff success！")
+    except Exception as e:
+        print e
+
+    # Stop webqw
+    stop_proc(service_pid)
+    update_errorlog("[%s] %s webqw stoped\n" % (get_now_time(), cost_type))
+
+    return 0
+
 
 def set_content_to_x(content, cost_type):
     tmp = []
@@ -540,8 +614,7 @@ def set_content_to_x(content, cost_type):
             total_content += line + '\n'
     elif (type(content) == type(total_content)):
         total_content = content
-    sql = "UPDATE %s set %s='%s' where id=%d" % (
-        database_table, cost_type, total_content.decode('gbk').encode('utf8'), mission_id)
+    sql = "UPDATE %s set %s='%s' where id=%d" % (database_table, cost_type, total_content.decode('gbk').encode('utf8'), mission_id)
     cursor.execute(sql)
     db.commit()
 
@@ -608,44 +681,34 @@ def performance_once(file_path, performance_result, cost_type):
     sql = "SELECT testitem FROM %s WHERE id='%d' " % (database_table, mission_id)
     cursor.execute(sql)
     data = cursor.fetchone()
-    if data[0] == '1':
 
-        # Start PressTool
-        log = []
-        update_errorlog("[%s] Begin start PressTool\n" % get_now_time())
-        if cost_type == 'cost_test':
-            (ret, tools_pid) = sggp_lanch(sggp_path, "start_qw_test.sh", log)
-        else:
-            (ret, tools_pid) = sggp_lanch(sggp_path, "start_qw_base.sh", log)
-        print ret, tools_pid
-        if (ret < 0):
-            time.sleep(0.5)
-            up_log = ""
-            for line in log:
-                up_log += "[%s] %s" % (get_now_time(), line + '\n')
-            update_errorlog("%s\n" % (up_log))
-            up_log = ""
-            for iotype, line in asycmd.execute_with_data(['/bin/tail', '-50', sggp_path + "/err"], shell=False):
-                up_log += line + '\n'
-            update_errorlog(up_log.decode('gbk').encode('utf-8').replace("'", "\\'"))
-            return -1
-        update_errorlog("[%s] PressTool Start OK, PIDs %s\n" % (get_now_time(), str(tools_pid)))
-        update_errorlog("[%s] Wait PressTool...\n" % get_now_time())
+    # Start PressTool
+    log = []
+    update_errorlog("[%s] Begin start PressTool\n" % get_now_time())
+    if cost_type == 'cost_test':
+        (ret, tools_pid) = sggp_lanch(sggp_path, "start_qw_test.sh", log)
+    else:
+        (ret, tools_pid) = sggp_lanch(sggp_path, "start_qw_base.sh", log)
+    print ret, tools_pid
+    if (ret < 0):
+        time.sleep(0.5)
+        up_log = ""
+        for line in log:
+            up_log += "[%s] %s" % (get_now_time(), line + '\n')
+        update_errorlog("%s\n" % (up_log))
+        up_log = ""
+        for iotype, line in asycmd.execute_with_data(['/bin/tail', '-50', sggp_path + "/err"], shell=False):
+            up_log += line + '\n'
+        update_errorlog(up_log.decode('gbk').encode('utf-8').replace("'", "\\'"))
+        return -1
+    update_errorlog("[%s] PressTool Start OK, PIDs %s\n" % (get_now_time(), str(tools_pid)))
+    update_errorlog("[%s] Wait PressTool...\n" % get_now_time())
 
-        # Wait PressTool Stop
-        for subpid in tools_pid:
-            wait_to_die(subpid, 5 * 30, file_path, cost_type)
-        update_errorlog("[%s] PressTool stoped\n" % get_now_time())
+    # Wait PressTool Stop
+    for subpid in tools_pid:
+        wait_to_die(subpid, 5 * 30, file_path, cost_type)
+    update_errorlog("[%s] PressTool stoped\n" % get_now_time())
 
-    elif data[0] == '0':
-        diff_result = longDiff.diff_query()
-        update_sql = "UPDATE %s set diff_content=%s where id=%d" % ('webqw_webqwqps', diff_result, mission_id)
-        try:
-            cursor.execute(update_sql)
-            db.commit()
-            update_errorlog("插入diff数据成功！")
-        except Exception as e:
-            print e
 
     # Stop webqw
     stop_proc(service_pid)
@@ -1011,26 +1074,39 @@ def main():
             set_status(3)
             return 4
         update_errorlog("[%s] %s\n" % (get_now_time(), "cp start.sh to base env ok"))
-
-    if basesvn.strip() != "":
-        ### start base perform
-        # if (testitem == 1):
-        try:
-            ret = run_performace(base_path, "cost_base")
-            if (ret != 0):
+    if ( testitem ==1):
+        if basesvn.strip() != "":
+            ### start base perform
+            # if (testitem == 1):
+            try:
+                ret = run_performace(base_path, "cost_base")
+                if (ret != 0):
+                    set_status(3)
+                    return -1
+            except Exception as e:
+                update_errorlog("[%s] %s\n" % (get_now_time(), e))
                 set_status(3)
                 return -1
-        except Exception as e:
-            update_errorlog("[%s] %s\n" % (get_now_time(), e))
-            set_status(3)
-            return -1
-        if (ret != 0):
+            if (ret != 0):
                 set_status(3)
                 return 5
 
-    if testsvn.strip() != "":
-        ### start test perform
-        # if (testitem == 1):
+        if testsvn.strip() != "":
+            ### start test perform
+            # if (testitem == 1):
+            try:
+                ret = run_performace(test_path, "cost_test")
+                if (ret != 0):
+                    set_status(3)
+                    return -1
+            except Exception as e:
+                update_errorlog("[%s] %s\n" % (get_now_time(), e))
+                set_status(3)
+                return -1
+            if (ret != 0):
+                set_status(3)
+                return 5
+    elif testitem==0:
         try:
             ret = run_performace(test_path, "cost_test")
             if (ret != 0):
