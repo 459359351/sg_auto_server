@@ -532,9 +532,10 @@ def run_performace(file_path, cost_type):
     set_content_to_x(cost, cost_type)
     return 0
 
-def run_diff(file_path,cost_type):
+def run_diff(file_path, cost_type):
     asycmd = asycommands.TrAsyCommands(timeout=120)
     asycmd_list.append(asycmd)
+
     # kill lt-queryoptimiz
     for iotype, line in asycmd.execute_with_data(['ps -ef|grep lt-queryoptimiz|grep -v grep'], shell=True):
         if (line.find('lt-queryoptimiz') != -1):
@@ -567,17 +568,19 @@ def run_diff(file_path,cost_type):
 
     log = []
     # start lt-queryoptimiz
-    update_errorlog("[%s] Begin Start %s webqw\n" % (get_now_time(), cost_type))
-    (ret, service_pid) = lanch(file_path + "/QueryOptimizer", "start.sh", 8019, log)
+    update_errorlog("[%s] Begin Start %s webqo\n" % (get_now_time(), cost_type))
+    (ret, service_pid) = lanch(file_path + "/QueryOptimizer", "start.sh", 8012, log)
     if (ret < 0):
         bakfile = runlogbak + cost_type + '_starterr_' + str(mission_id)
         os.popen("cp %s %s" % (file_path + '/QueryOptimizer/err.log', bakfile))
-        update_errorlog("[%s] %s webqw Start error, errlog path %s s\n" % (get_now_time(), cost_type, local_ip + runlogbak))
+        update_errorlog(
+            "[%s] %s webqo Start error, errlog path %s s\n" % (get_now_time(), cost_type, local_ip + runlogbak))
         for fname in os.listdir(file_path + '/QueryOptimizer'):
             if 'core' in fname:
                 corefile = runlogbak + cost_type + '_startcore_' + str(mission_id)
                 os.popen("cp %s %s" % (file_path + '/QueryOptimizer/core.*', corefile))
-                update_errorlog("[%s] %s webqw Start core, core file path %s s\n" % (get_now_time(), cost_type, local_ip + runlogbak))
+                update_errorlog("[%s] %s webqo Start core, core file path %s s\n" % (
+                    get_now_time(), cost_type, local_ip + runlogbak))
         time.sleep(0.5)
         up_log = ""
         for line in log:
@@ -588,21 +591,11 @@ def run_diff(file_path,cost_type):
             up_log += line + '\n'
         update_errorlog(up_log.decode('gbk').encode('utf-8').replace("'", "\\'"))
         return -1
-    update_errorlog("[%s] %s webqw Start OK, cost %d s, PID %s \n" % (get_now_time(), cost_type, ret, str(service_pid)))
+    update_errorlog("[%s] %s webqo Start OK, cost %d s, PID %s \n" % (get_now_time(), cost_type, ret, str(service_pid)))
 
-
-    diff_result = cgi.escape(str(longDiff.diff_query()))
-    update_sql = "UPDATE %s set diff_content='%s' where id=%d" % ('webqw_webqwqps', diff_result, mission_id)
-    try:
-        cursor.execute(update_sql)
-        db.commit()
-        update_errorlog("insert diff success！")
-    except Exception as e:
-        print e
-
-    # Stop webqw
+    # Stop webqo
     stop_proc(service_pid)
-    update_errorlog("[%s] %s webqw stoped\n" % (get_now_time(), cost_type))
+    update_errorlog("[%s] %s webqo stoped\n" % (get_now_time(), cost_type))
 
     return 0
 
