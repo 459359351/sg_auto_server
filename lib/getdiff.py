@@ -47,7 +47,7 @@ def insert_diff_data(diffcontent,diffnum,diff_task_id):
         db.rollback()
         pass
 
-    sql = "INSERT INTO %s(create_time,user,diff_content,diff_task_id) VALUES ('%s','%s','%s',%d)" % ('fanyi_diffcontent', 'zhangjingjun',get_now_time() ,diffcontent,diff_task_id)
+    sql = "INSERT INTO %s(create_time,user,diff_content,diff_task_id) VALUES ('%s','%s','%s',%d)" % ('fanyi_diffcontent', ,get_now_time() ,'zhangjingjun',diffcontent,diff_task_id)
    
     try:
         cursor.execute(sql)
@@ -129,8 +129,9 @@ def getDiff(query_tools_path,filename,fromlang,tolang,mission_id):
                 pass
           
             allo.write('Query:'+item.decode('utf-8')+'\n')
+            allo.write('QueryXml:'+xmldata+'\n')
             allo.write('base:'+resp_base.text+'result:'+result_base['transRes']+'\n')
-            allo.write('base:'+resp_test.text+'result:'+result_test['transRes']+'\n')
+            allo.write('test:'+resp_test.text+'result:'+result_test['transRes']+'\n')
             if (result_base['transRes'] != result_test['transRes']):
                 base_diff_content += ('Query:'+item.decode('utf-8')+'\n'+result_base['transRes']+'\n')
                 test_diff_content += ('Query:'+item.decode('utf-8')+'\n'+result_test['transRes']+'\n')
@@ -166,6 +167,6 @@ def getDiff(query_tools_path,filename,fromlang,tolang,mission_id):
 
 if __name__ == '__main__':
     queryFile = sys.argv[1]
-    from_lang = 'zh-CHS'
-    to_lang = 'ja'
-    getDiff('/search/odin/daemon/translate/tools/',queryFile,from_lang,to_lang,22)
+    from_lang = 'en'
+    to_lang = 'zh-CHS'
+    getDiff('/search/odin/daemon/translate/tools/',queryFile,from_lang,to_lang,41)
