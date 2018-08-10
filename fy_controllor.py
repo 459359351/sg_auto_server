@@ -4,7 +4,7 @@ import subprocess
 import pymysql
 import time
 from lib import logUtils
-from qoconf import *
+from fyconf import *
 
 
 #db = pymysql.connect(database_host,database_user,database_pass,database_data)
@@ -53,7 +53,7 @@ def main():
         loginfo.log_info('mission_id'+str(mission_id))
         if mission_id is not -1:
             loginfo.log_info("task start")
-            child = subprocess.Popen(['/usr/local/bin/python2', 'qoqps_runner.py','%d' % mission_id], shell = False, stdout = log_fd, stderr = log_fd, cwd=autoqps_path)
+            child = subprocess.Popen(['/usr/bin/python', 'fydiff.py','%d' % mission_id], shell = False, stdout = log_fd, stderr = log_fd, cwd=autoqps_path)
             task_list[mission_id] = child
         cancel_id = get_cancel_id(cursor,loginfo)
         if cancel_id is -1:
