@@ -7,13 +7,14 @@ import pymysql
 import time
 import subprocess
 
-from qoconf import *
+from qwconf import *
 from lib import logUtils
 from lib import confhelper
 from lib import asycommands
 from lib import svnpkg
 from lib import makelink
 from lib import Email
+from lib import longDiff
 
 import psutil
 import hashlib
@@ -21,6 +22,7 @@ import signal
 import pexpect
 import shutil
 import urllib
+import cgi
 
 db = pymysql.connect(database_host, database_user, database_pass, database_data)
 cursor = db.cursor()
@@ -28,6 +30,31 @@ cursor = db.cursor()
 mission_id = int(sys.argv[1])
 asycmd_list = list()
 proc_list = list()
+
+
+def scp_diff_conf(file_path, newconfip, newconfuser, newconfpassw, newconfpath):
+    update_errorlog("[%s] try scp rd longdiff_query to test enviroment\n" % get_now_time())
+    if os.path.exists(file_path + "/longdiff/longdiff_query"):
+        update_errorlog("[%s] %s\n" % (get_now_time(), "long_diffquery  exists, del it"))
+        os.popen("rm -rf " + file_path + "/longdiff/longdiff_query")
+
+    passwd_key = '.*assword.*'
+
+    cmdline = 'scp -r %s@%s:%s %s/' % (newconfuser, newconfip, newconfpath, file_path + '/longdiff')
+    try:
+        child = pexpect.spawn(cmdline)
+        expect_result = child.expect([r'assword:', r'yes/no'], timeout=30)
+        if expect_result == 0:
+            child.sendline(newconfpassw)
+        elif expect_result == 1:
+            child.sendline('yes')
+            child.expect(passwd_key, timeout=30)
+            child.sendline(newconfpassw)
+        child.expect(pexpect.EOF)
+    except Exception as e:
+        update_errorlog("[%s] %s, scp rd long_diff failed \n" % (get_now_time(), e))
+    update_errorlog("[%s] try scp rd long_diff to test enviroment success\n" % get_now_time())
+    return 0
 
 
 def get_now_time():
@@ -38,7 +65,9 @@ def get_now_time():
 def get_material():
     # newconfpath | newconfip | newconfpassw | newconfuser | newdataip | newdatapassw | newdatauser | newdatapath | newdata_topath
 
-    sql = "SELECT testsvn, basesvn, testitem, newconfip, newconfuser, newconfpassw, newconfpath, newdataip, newdatauser, newdatapassw, newdatapath, newdata_topath, press_qps, press_time, press_expid, press_rate FROM %s where id='%d'" % (database_table, mission_id)
+
+    sql = "SELECT testsvn, basesvn, testitem, newconfip, newconfuser, newconfpassw, newconfpath, newdataip, newdatauser, newdatapassw, newdatapath, newdata_topath, press_qps, press_time, press_expid, press_rate ,query_ip, query_user, query_pwd, query_path FROM %s where id='%d'" % (
+        database_table, mission_id)
     cursor.execute(sql)
     data = cursor.fetchone()
     sql = "UPDATE %s set start_time='%s', status = 2 where id=%d" % (database_table, get_now_time(), mission_id)
@@ -72,14 +101,13 @@ def set_status(stat):
     db.commit()
     if (stat != 1):
         clean_proc()
-
-    fr_name = 'Webqo'
+    fr_name = 'Webqw'
     if stat == 4:
         sql_User = "SELECT id, start_time, end_time, cost_test, cost_base ,user FROM %s where id='%d'" % (
             database_table, mission_id)
         cursor.execute(sql_User)
         data = cursor.fetchone()
-        title = 'Webqo Performance Test Result'
+        title = 'Webqw Performance Test Result'
         body_head = """<html><head><style type="text/css">table{border-collapse:collapse;margin:0 auto;text-align:center;}table td,table th{border:1px solid #cad9ea;color:#666;height:30px;}table thead th{background-color:#CCE8EB;width:100px;}table tr:nth-child(odd){background:#fff;}table tr:nth-child(even){background:#F5FAFA;}</style></head><table width='90%' class='table'><thead><tr><th>id</th><th>start_time</th><th>endtime</th><th>cost_test</th><th>cost_base</th><th>details</th></tr></thead>"""
 
         body_content = """<tr><td>%s</td><td>%s</td><td>%s</td><td>%s</td><td>%s</td><td><a href="http://frontqa.web.sjs.ted/qo_task_detail_%d.html">details</a></td></tr></table></body></html>"""
@@ -92,14 +120,14 @@ def set_status(stat):
         sql_User = "SELECT id, start_time, end_time,user FROM %s where id='%d'" % (database_table, mission_id)
         cursor.execute(sql_User)
         data = cursor.fetchone()
-        title = 'Webqo ERROR'
+        title = 'Webqw ERROR'
         body_head = """<html><head><style type="text/css">table{border-collapse:collapse;margin:0 auto;text-align:center;}table td,table th{border:1px solid #cad9ea;color:#666;height:30px;}table thead th{background-color:#CCE8EB;width:100px;}table tr:nth-child(odd){background:#fff;}table tr:nth-child(even){background:#F5FAFA;}</style></head><table width='90%' class='table'><thead><tr><th>id</th><th>start_time</th><th>endtime</th><th>details</th></tr></thead>"""
 
         body_content = """<tr><td>%s</td><td>%s</td><td>%s</td><td><a href="http://frontqa.web.sjs.ted/qo_task_detail_%d.html">details</a></td></tr></table></body></html>"""
         body = body_head + body_content % (data[0], data[1], data[2], int(data[0]))
         maillist = data[3] + "@sogou-inc.com"
         Email.sendEmail(fr_name, title, body, maillist)
-        update_errorlog("[%s] send a failed email to [%s] \n" % (get_now_time(), data[3]))
+        update_errorlog("[%s] send a successful email to [%s] \n" % (get_now_time(), data[3]))
 
 
 def clean_proc():
@@ -222,13 +250,11 @@ def checkcode_env(file_path, svn):
         pos = line.find('=')
         key = line[0:pos]
         value = line[pos + 1:]
-        print('111', key, value)
         if (value.find('http://') != 0):
             update_errorlog("[%s] svn url format error: %s\n" % (get_now_time(), line))
             return -1
         key_path = os.path.join(file_path, key)
         url = ""
-        print(2222, mysvn.svn_info(key_path))
         if (mysvn.svn_info(key_path) != 0):
             # no path, then checkout
             ret = mysvn.svn_co(value, key_path)
@@ -305,8 +331,6 @@ def scpnewdata(file_path, host_ip, username, password, newdata_path):
         arg2 = file_path + '/data/'
         stdlog = ""
         errlog = ""
-        # arg = 'rsync.webqo01.web.1.djt.ted::search/odin/daemon/qo/data/'
-        # arg2 = '/search/summary_o/webqo/data/'
         asycmd = asycommands.TrAsyCommands(timeout=30 * 300)
         for iotype, line in asycmd.execute_with_data(['rsync', '-ravl', arg, arg2], shell=False):
             if (iotype is 1):
@@ -361,11 +385,11 @@ def scpnewdata(file_path, host_ip, username, password, newdata_path):
 def cp_new_conf(tmp_conf_path, test_env_path):
     ### cp ol_dev_conf to test env
     update_errorlog("[%s] use cfg online ,cp it from tmp_conf_path\n" % get_now_time())
-    if os.path.exists(test_env_path + "/QueryOptimizer/qo.cfg"):
+    if os.path.exists(test_env_path + "/QueryOptimizer/qw.cfg"):
         update_errorlog("[%s] %s\n" % (get_now_time(), "cfg  exists, del it"))
-        os.popen("rm -rf " + test_env_path + "/QueryOptimizer/qo.cfg")
+        os.popen("rm -rf " + test_env_path + "/QueryOptimizer/qw.cfg")
 
-    os.popen("cp %s/qo.cfg %s/QueryOptimizer/" % (tmp_conf_path, test_env_path))
+    os.popen("cp %s/qw.cfg %s/QueryOptimizer/" % (tmp_conf_path, test_env_path))
     update_errorlog("[%s] cp cfg from tmp_conf_path success\n" % get_now_time())
 
     return 0
@@ -382,10 +406,10 @@ def cp_start_sc(file_path):
 
 
 def scp_new_conf(file_path, newconfip, newconfuser, newconfpassw, newconfpath):
-    update_errorlog("[%s] try scp rd qo.cfg to test enviroment\n" % get_now_time())
-    if os.path.exists(file_path + "/QueryOptimizer/qo.cfg"):
+    update_errorlog("[%s] try scp rd qw.cfg to test enviroment\n" % get_now_time())
+    if os.path.exists(file_path + "/QueryOptimizer/qw.cfg"):
         update_errorlog("[%s] %s\n" % (get_now_time(), "cfg  exists, del it"))
-        os.popen("rm -rf " + file_path + "/QueryOptimizer/qo.cfg")
+        os.popen("rm -rf " + file_path + "/QueryOptimizer/qw.cfg")
 
     passwd_key = '.*assword.*'
 
@@ -402,8 +426,8 @@ def scp_new_conf(file_path, newconfip, newconfuser, newconfpassw, newconfpath):
         child.expect(pexpect.EOF)
 
     except Exception as e:
-        update_errorlog("[%s] %s, scp rd qo.cfg failed \n" % (get_now_time(), e))
-    update_errorlog("[%s] try scp rd qo.cfg to test enviroment success\n" % get_now_time())
+        update_errorlog("[%s] %s, scp rd qw.cfg failed \n" % (get_now_time(), e))
+    update_errorlog("[%s] try scp rd qw.cfg to test enviroment success\n" % get_now_time())
     return 0
 
 
@@ -446,7 +470,7 @@ def stop_proc(pid):
 def lanch(file_path, start_script, port, log):
     # rules: start_script must put pid in `PID` file: echo $! > PID
     # return a tuple(retcode, pid)
-    # lanch(sggp_path, "start_qo_group.sh", -1, log)
+    # lanch(sggp_path, "start_qw_group.sh", -1, log)
     pid = -1
     asycmd = asycommands.TrAsyCommands(timeout=30)
     asycmd_list.append(asycmd)
@@ -508,22 +532,7 @@ def run_performace(file_path, cost_type):
     set_content_to_x(cost, cost_type)
     return 0
 
-
-def set_content_to_x(content, cost_type):
-    tmp = []
-    total_content = ""
-    if (type(content) == type(tmp)):
-        for line in content:
-            total_content += line + '\n'
-    elif (type(content) == type(total_content)):
-        total_content = content
-    sql = "UPDATE %s set %s='%s' where id=%d" % (
-        database_table, cost_type, total_content.decode('gbk').encode('utf8'), mission_id)
-    cursor.execute(sql)
-    db.commit()
-
-
-def performance_once(file_path, performance_result, cost_type):
+def run_diff(file_path, cost_type):
     asycmd = asycommands.TrAsyCommands(timeout=120)
     asycmd_list.append(asycmd)
 
@@ -584,15 +593,97 @@ def performance_once(file_path, performance_result, cost_type):
         return -1
     update_errorlog("[%s] %s webqo Start OK, cost %d s, PID %s \n" % (get_now_time(), cost_type, ret, str(service_pid)))
 
+    # Stop webqo
+    stop_proc(service_pid)
+    update_errorlog("[%s] %s webqo stoped\n" % (get_now_time(), cost_type))
+
+    return 0
+
+
+def set_content_to_x(content, cost_type):
+    tmp = []
+    total_content = ""
+    if (type(content) == type(tmp)):
+        for line in content:
+            total_content += line + '\n'
+    elif (type(content) == type(total_content)):
+        total_content = content
+    sql = "UPDATE %s set %s='%s' where id=%d" % (database_table, cost_type, total_content.decode('gbk').encode('utf8'), mission_id)
+    cursor.execute(sql)
+    db.commit()
+
+
+def performance_once(file_path, performance_result, cost_type):
+    asycmd = asycommands.TrAsyCommands(timeout=120)
+    asycmd_list.append(asycmd)
+    # kill lt-queryoptimiz
+    for iotype, line in asycmd.execute_with_data(['ps -ef|grep lt-queryoptimiz|grep -v grep'], shell=True):
+        if (line.find('lt-queryoptimiz') != -1):
+            pid = int(line.split()[1])
+            stop_proc(pid)
+
+    # clean Mem
+    sync_cmd = subprocess.Popen(['sync'], shell=False, cwd=file_path, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    sync_cmd.wait()
+    if (sync_cmd.returncode == 0):
+        update_errorlog("[%s] %s sync success \n" % (get_now_time(), cost_type))
+    else:
+        update_errorlog("[%s] %s sync error \n" % (get_now_time(), cost_type))
+
+    echo_three_cmd = subprocess.Popen(['echo 3 > /proc/sys/vm/drop_caches'], shell=True, stdout=subprocess.PIPE,
+                                      stderr=subprocess.PIPE)
+    echo_three_cmd.wait()
+    if (sync_cmd.returncode == 0):
+        update_errorlog("[%s] %s free mem success \n" % (get_now_time(), cost_type))
+    else:
+        update_errorlog("[%s] %s free pagecache, dentries and inodes error \n" % (get_now_time(), cost_type))
+
+    echo_one_cmd = subprocess.Popen(['echo 0 > /proc/sys/vm/drop_caches'], shell=True, stdout=subprocess.PIPE,
+                                    stderr=subprocess.PIPE)
+    echo_one_cmd.wait()
+    if (sync_cmd.returncode == 0):
+        update_errorlog("[%s] %s reset success \n" % (get_now_time(), cost_type))
+    else:
+        update_errorlog("[%s] %s reset free error \n" % (get_now_time(), cost_type))
+
+    log = []
+    # start lt-queryoptimiz
+    update_errorlog("[%s] Begin Start %s webqw\n" % (get_now_time(), cost_type))
+    (ret, service_pid) = lanch(file_path + "/QueryOptimizer", "start.sh", 8019, log)
+    if (ret < 0):
+        bakfile = runlogbak + cost_type + '_starterr_' + str(mission_id)
+        os.popen("cp %s %s" % (file_path + '/QueryOptimizer/err.log', bakfile))
+        update_errorlog("[%s] %s webqw Start error, errlog path %s s\n" % (get_now_time(), cost_type, local_ip + runlogbak))
+        for fname in os.listdir(file_path + '/QueryOptimizer'):
+            if 'core' in fname:
+                corefile = runlogbak + cost_type + '_startcore_' + str(mission_id)
+                os.popen("cp %s %s" % (file_path + '/QueryOptimizer/core.*', corefile))
+                update_errorlog("[%s] %s webqw Start core, core file path %s s\n" % (
+                    get_now_time(), cost_type, local_ip + runlogbak))
+        time.sleep(0.5)
+        up_log = ""
+        for line in log:
+            up_log += "[%s] %s" % (get_now_time(), line + '\n')
+        update_errorlog("%s\n" % (up_log))
+        for iotype, line in asycmd.execute_with_data(['/bin/tail', '-50', file_path + "/QueryOptimizer/err.log"],
+                                                     shell=False):
+            up_log += line + '\n'
+        update_errorlog(up_log.decode('gbk').encode('utf-8').replace("'", "\\'"))
+        return -1
+    update_errorlog("[%s] %s webqw Start OK, cost %d s, PID %s \n" % (get_now_time(), cost_type, ret, str(service_pid)))
+
+    sql = "SELECT testitem FROM %s WHERE id='%d' " % (database_table, mission_id)
+    cursor.execute(sql)
+    data = cursor.fetchone()
+
     # Start PressTool
     log = []
     update_errorlog("[%s] Begin start PressTool\n" % get_now_time())
     if cost_type == 'cost_test':
-        (ret, tools_pid) = sggp_lanch(sggp_path, "start_qo_test.sh", log)
+        (ret, tools_pid) = sggp_lanch(sggp_path, "start_qw_test.sh", log)
     else:
-        (ret, tools_pid) = sggp_lanch(sggp_path, "start_qo_base.sh", log)
-    print
-    ret, tools_pid
+        (ret, tools_pid) = sggp_lanch(sggp_path, "start_qw_base.sh", log)
+    print ret, tools_pid
     if (ret < 0):
         time.sleep(0.5)
         up_log = ""
@@ -604,7 +695,7 @@ def performance_once(file_path, performance_result, cost_type):
             up_log += line + '\n'
         update_errorlog(up_log.decode('gbk').encode('utf-8').replace("'", "\\'"))
         return -1
-    update_errorlog("[%s] PressTool Start OK ,PIDs %s \n" % (get_now_time(), str(tools_pid)))
+    update_errorlog("[%s] PressTool Start OK, PIDs %s\n" % (get_now_time(), str(tools_pid)))
     update_errorlog("[%s] Wait PressTool...\n" % get_now_time())
 
     # Wait PressTool Stop
@@ -612,9 +703,10 @@ def performance_once(file_path, performance_result, cost_type):
         wait_to_die(subpid, 5 * 30, file_path, cost_type)
     update_errorlog("[%s] PressTool stoped\n" % get_now_time())
 
-    # Stop webqo
+
+    # Stop webqw
     stop_proc(service_pid)
-    update_errorlog("[%s] %s webqo stoped\n" % (get_now_time(), cost_type))
+    update_errorlog("[%s] %s webqw stoped\n" % (get_now_time(), cost_type))
 
     return get_performance(file_path + '/QueryOptimizer/err.log', performance_result, cost_type)
 
@@ -629,7 +721,7 @@ def get_performance(log_file, performance, cost_type):
 
     asycmd = asycommands.TrAsyCommands(timeout=240)
     asycmd_list.append(asycmd)
-    for iotype, line in asycmd.execute_with_data(['python3', cost_tool, log_file], shell=False):
+    for iotype, line in asycmd.execute_with_data(['python2', cost_tool, log_file], shell=False):
         performance.append(line)
     if (asycmd.return_code() != 0):
         return asycmd.return_code()
@@ -639,7 +731,7 @@ def get_performance(log_file, performance, cost_type):
 def sggp_lanch(file_path, start_script, log):
     # rules: start_script must put pid in `PID` file: echo $! > PID
     # return a tuple(retcode, pid)
-    # lanch(sggp_path, "start_qo_group.sh", -1, log)
+    # lanch(sggp_path, "start_qw_group.sh", -1, log)
     pid = list()
     asycmd = asycommands.TrAsyCommands(timeout=30)
     asycmd_list.append(asycmd)
@@ -686,32 +778,28 @@ def configure_sggp_test(sggp_path, qps, time, press_expid, press_rate):
     if time == '' or time > 30:
         time = 30
     thread_size = int(qps / 4)
-    cfg_expall = confhelper.ConfReader(sggp_path + '/web_qo_expall.ini')
-    cfg_expall.setValue('web_qo_exp', 'press_qps', qps)
-    cfg_expall.setValue('web_qo_exp', 'thread_size', thread_size)
-    cfg_expall.setValue('web_qo_exp', 'press_time', time)
+    cfg_expall = confhelper.ConfReader(sggp_path + '/web_qw_expall.ini')
+    cfg_expall.setValue('web_qw_exp', 'press_qps', qps)
+    cfg_expall.setValue('web_qw_exp', 'thread_size', thread_size)
+    cfg_expall.setValue('web_qw_exp', 'press_time', time)
 
-    cfg_online = confhelper.ConfReader(sggp_path + '/web_qo_online.ini')
-    cfg_online.setValue('web_qo', 'press_qps', qps)
-    cfg_online.setValue('web_qo', 'thread_size', thread_size)
-    cfg_online.setValue('web_qo', 'press_time', time)
+    cfg_online = confhelper.ConfReader(sggp_path + '/web_qw_online.ini')
+    cfg_online.setValue('web_qw', 'press_qps', qps)
+    cfg_online.setValue('web_qw', 'thread_size', thread_size)
+    cfg_online.setValue('web_qw', 'press_time', time)
 
-    if (os.path.exists(sggp_path + '/start_qo_test.sh')):
-        print
-        'start_qo_test is exist,del it'
-        update_errorlog("[%s] start_qo_test is exist,del it\n" % get_now_time())
-        os.popen('rm -rf %s' % (sggp_path + '/start_qo_test.sh'))
+    if (os.path.exists(sggp_path + '/start_qw_test.sh')):
+        update_errorlog("[%s] start_qw_test is exist,del it\n" % get_now_time())
+        os.popen('rm -rf %s' % (sggp_path + '/start_qw_test.sh'))
     if press_expid != 0 and press_rate > 0:
-        print
-        sggp_path, qps, press_expid, press_rate
         expid = hex(press_expid)[2:] + '^0^0^0^0^0^0^0^0'
-        commandline = 'echo ' + expid + ' | /search/odin/daemon/webqo/tools/sggp/data/Encode -f utf8 -t utf16'
+        commandline = 'echo ' + expid + ' | /search/odin/daemon/webqw/tools/sggp/data/Encode -f utf8 -t utf16'
         asycmd = asycommands.TrAsyCommands(timeout=240)
         asycmd_list.append(asycmd)
         for iotype, line in asycmd.execute_with_data([commandline], shell=True):
             exp_id = "exp_id=" + line
-        base_query = sggp_query_path + 'query_qo_base'
-        command = '''awk '{print "''' + exp_id + """"$0}' """ + base_query + ">" + sggp_query_path + "query_qo_expid"
+        base_query = sggp_query_path + 'query_qw_base'
+        command = '''awk '{print "''' + exp_id + """"$0}' """ + base_query + ">" + sggp_query_path + "query_qw_expid"
         try:
             child = subprocess.Popen(command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
             child.communicate(input=None)
@@ -719,20 +807,20 @@ def configure_sggp_test(sggp_path, qps, time, press_expid, press_rate):
         except Exception as e:
             update_errorlog("[%s] create expid query wrong ,except:%s\n" % (get_now_time(), e))
         if press_rate < 100:
-            qo_expid_qps = qps * press_rate / 100
-            qo_qps = 1000 - qo_expid_qps
-            cfg = confhelper.ConfReader(sggp_path + '/web_qo_group.ini')
-            cfg.setValue('web_qo_exp', 'press_qps', int(qo_expid_qps))
-            cfg.setValue('web_qo_exp', 'thread_size', int(qo_expid_qps))
-            cfg.setValue('web_qo', 'press_qps', int(qo_qps))
-            cfg.setValue('web_qo', 'thread_size', int(qo_qps / 5))
-            cfg.setValue('web_qo_exp', 'press_time', time)
-            cfg.setValue('web_qo', 'press_time', time)
-            os.symlink(sggp_path + '/start_qo_group.sh', sggp_path + '/start_qo_test.sh')
+            qw_expid_qps = qps * press_rate / 100
+            qw_qps = 1000 - qw_expid_qps
+            cfg = confhelper.ConfReader(sggp_path + '/web_qw_group.ini')
+            cfg.setValue('web_qw_exp', 'press_qps', int(qw_expid_qps))
+            cfg.setValue('web_qw_exp', 'thread_size', int(qw_expid_qps))
+            cfg.setValue('web_qw', 'press_qps', int(qw_qps))
+            cfg.setValue('web_qw', 'thread_size', int(qw_qps / 5))
+            cfg.setValue('web_qw_exp', 'press_time', time)
+            cfg.setValue('web_qw', 'press_time', time)
+            os.symlink(sggp_path + '/start_qw_group.sh', sggp_path + '/start_qw_test.sh')
         elif press_rate == 100:
-            os.symlink(sggp_path + '/start_qo_expall.sh', sggp_path + '/start_qo_test.sh')
+            os.symlink(sggp_path + '/start_qw_expall.sh', sggp_path + '/start_qw_test.sh')
     else:
-        os.symlink(sggp_path + '/start_qo_online.sh', sggp_path + '/start_qo_test.sh')
+        os.symlink(sggp_path + '/start_qw_online.sh', sggp_path + '/start_qw_test.sh')
     return 0
 
 
@@ -752,10 +840,7 @@ def main():
 
     loginfo.log_info("mission_id:" + str(mission_id))
 
-    (
-        testsvn, basesvn, testitem, newconfip, newconfuser, newconfpassw, newconfpath, newdataip, newdatauser,
-        newdatapassw,
-        newdatapath, newdata_topath, press_qps, press_time, press_expid, press_rate) = get_material()
+    (testsvn, basesvn, testitem, newconfip, newconfuser, newconfpassw, newconfpath, newdataip, newdatauser, newdatapassw,newdatapath, newdata_topath, press_qps, press_time, press_expid, press_rate, query_ip, query_user, query_pwd,query_path) = get_material()
 
     loginfo.log_info("testsvn:" + testsvn)
     loginfo.log_info("basesvn:" + basesvn)
@@ -773,6 +858,10 @@ def main():
     loginfo.log_info("press_time:" + str(press_time))
     loginfo.log_info("press_expid:" + str(press_expid))
     loginfo.log_info("press_rate:" + str(press_rate))
+    loginfo.log_info("press_rate:" + str(query_ip))
+    loginfo.log_info("press_rate:" + str(query_user))
+    loginfo.log_info("press_rate:" + str(query_pwd))
+    loginfo.log_info("press_rate:" + str(query_path))
 
     ####configure sggp/ACE_Pressure_CACHE.ini
 
@@ -782,11 +871,14 @@ def main():
     #        set_status(3)
     #        return -1
 
-    ret_configure_sggp_test = configure_sggp_test(sggp_path, press_qps, press_time, press_expid, press_rate)
-    if ret_configure_sggp_test != 0:
-        update_errorlog("[%s] %s\n" % (get_now_time(), "configure sggp_conf has some error, pls check"))
-        set_status(3)
-        return -1
+    if testitem == 1:
+        ret_configure_sggp_test = configure_sggp_test(sggp_path, press_qps, press_time, press_expid, press_rate)
+        if ret_configure_sggp_test != 0:
+            update_errorlog("[%s] %s\n" % (get_now_time(), "configure sggp_conf has some error, pls check"))
+            set_status(3)
+            return -1
+    elif testitem == 0:
+        scp_diff_conf("/search/odin/daemon", query_ip, query_user, query_pwd, query_path)
 
     # ret_sync_ol_data = sync_ol_data_to_local(ol_data_path+"/data")
     #    if ret_sync_ol_data != 0:
@@ -805,9 +897,6 @@ def main():
         update_errorlog("[%s] %s\n" % (get_now_time(), "sync_ol_conf_to_local has some error, pls check"))
         set_status(3)
         return -1
-
-        # testsvn=""
-        # basesvn=""
 
     ##### just run test
     if testsvn.strip() != "":
@@ -979,10 +1068,10 @@ def main():
             set_status(3)
             return 4
         update_errorlog("[%s] %s\n" % (get_now_time(), "cp start.sh to base env ok"))
-
-    if basesvn.strip() != "":
-        ### start base perform
-        if (testitem == 1):
+    if ( testitem ==1):
+        if basesvn.strip() != "":
+            ### start base perform
+            # if (testitem == 1):
             try:
                 ret = run_performace(base_path, "cost_base")
                 if (ret != 0):
@@ -996,9 +1085,9 @@ def main():
                 set_status(3)
                 return 5
 
-    if testsvn.strip() != "":
-        ### start test perform
-        if (testitem == 1):
+        if testsvn.strip() != "":
+            ### start test perform
+            # if (testitem == 1):
             try:
                 ret = run_performace(test_path, "cost_test")
                 if (ret != 0):
@@ -1011,6 +1100,19 @@ def main():
             if (ret != 0):
                 set_status(3)
                 return 5
+    elif testitem==0:
+        try:
+            ret = run_performace(test_path, "cost_test")
+            if (ret != 0):
+                set_status(3)
+                return -1
+        except Exception as e:
+            update_errorlog("[%s] %s\n" % (get_now_time(), e))
+            set_status(3)
+            return -1
+        if (ret != 0):
+            set_status(3)
+            return 5
     set_status(4)
     return 0
 
@@ -1026,3 +1128,4 @@ signal.signal(15, sig_handler)
 
 if __name__ == '__main__':
     main()
+    # scp_diff_conf("/search/odin/daemon","webqw01.web.djt.ted","guest","Sogou@)!$","/opt/guest/longdiff_query")

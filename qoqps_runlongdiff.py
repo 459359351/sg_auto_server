@@ -38,7 +38,8 @@ def get_now_time():
 def get_material():
     # newconfpath | newconfip | newconfpassw | newconfuser | newdataip | newdatapassw | newdatauser | newdatapath | newdata_topath
 
-    sql = "SELECT testsvn, basesvn, testitem, newconfip, newconfuser, newconfpassw, newconfpath, newdataip, newdatauser, newdatapassw, newdatapath, newdata_topath, press_qps, press_time, press_expid, press_rate FROM %s where id='%d'" % (database_table, mission_id)
+    sql = "SELECT testsvn, basesvn, testitem, newconfip, newconfuser, newconfpassw, newconfpath, newdataip, newdatauser, newdatapassw, newdatapath, newdata_topath, press_qps, press_time, press_expid, press_rate, user FROM %s where id='%d'" % (
+        database_table, mission_id)
     cursor.execute(sql)
     data = cursor.fetchone()
     sql = "UPDATE %s set start_time='%s', status = 2 where id=%d" % (database_table, get_now_time(), mission_id)
