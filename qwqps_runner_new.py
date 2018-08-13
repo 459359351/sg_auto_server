@@ -580,8 +580,7 @@ def run_diff(file_path, cost_type):
             if 'core' in fname:
                 corefile = runlogbak + cost_type + '_startcore_' + str(mission_id)
                 os.popen("cp %s %s" % (file_path + '/QueryOptimizer/core.*', corefile))
-                update_errorlog("[%s] %s webqw Start core, core file path %s s\n" % (
-                    get_now_time(), cost_type, local_ip + runlogbak))
+                update_errorlog("[%s] %s webqw Start core, core file path %s s\n" % (get_now_time(), cost_type, local_ip + runlogbak))
         time.sleep(0.5)
         up_log = ""
         for line in log:
@@ -593,22 +592,7 @@ def run_diff(file_path, cost_type):
         return -1
     update_errorlog("[%s] %s webqw Start OK, cost %d s, PID %s \n" % (get_now_time(), cost_type, ret, str(service_pid)))
 
-
-
-    # longDiff
-    #diff_result = cgi.escape(str(longDiff.diff_query()),quote=True)
-    #$update_sql = "UPDATE %s set diff_content='%s' where id=%d" % ('webqw_webqwqps', diff_result, mission_id)
-    
-    #print("update_sql:",update_sql)
-
-    #try:
-     #   cursor.execute(update_sql)
-      #  db.commit()
-       # update_errorlog("insert diff success£¡")
-   # except Exception as e:
-    #    print e
-     #   update_errorlog("insert diff failed£¡")
-
+    # 2000 diff
     longDiff.diff_query()    
 
     # Stop webqw

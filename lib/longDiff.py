@@ -19,7 +19,7 @@ def update_diffResult(data_content, diff_fk_id):
     db = pymysql.connect('10.134.110.163', 'root', 'Zhangjj@sogou123', 'sogotest')
     cursor = db.cursor()
     sql = "INSERT INTO %s(create_time,user,diff_content,diff_fk_id) VALUES ('%s','%s','%s',%d)" % (
-    'webqw_webqwdiffcontent', 'gongyanli', get_now_time(), data_content, diff_fk_id)
+        'webqw_webqwdiffcontent', 'gongyanli', get_now_time(), data_content, diff_fk_id)
 
     try:
         cursor.execute(sql)
@@ -71,8 +71,8 @@ def diff_query():
             temp += 1
 
             if temp == 3:
-                base_result = base_result.replace("'", '').replace('[', '').replace(']', '').replace(',','')
-                test_result = base_result.replace("'", '').replace('[', '').replace(']', '').replace(',','')
+                base_result = base_result.replace("'", '').replace('[', '').replace(']', '').replace(',', '')
+                test_result = base_result.replace("'", '').replace('[', '').replace(']', '').replace(',', '')
 
                 base_result = BeautifulSoup(str(base_result), "html.parser")
                 test_result = BeautifulSoup(str(test_result), "html.parser")
@@ -105,5 +105,6 @@ def diff_query():
     return 0
 
 
-diff_query()
+if __name__ == '__main__':
+    diff_query()
 # update_diffResult("data",68)
