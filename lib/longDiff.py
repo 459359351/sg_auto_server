@@ -39,9 +39,6 @@ def diff_query():
     base_result = ''
     test_result = ''
 
-    data_base_str = ''
-    data_test_str = ''
-
     temp = 0
 
     with open("/search/odin/daemon/longdiff/longdiff_query", 'r+') as file:
@@ -49,7 +46,7 @@ def diff_query():
             line = line.replace("\r\n", "")
             headers = {"Content-type": "application/x-www-form-urlencoded;charset=UTF-16LE"}
             base_resp = requests.post(base, data=line, headers=headers)
-            test_resp = requests.post(base, data=line, headers=headers)
+            test_resp = requests.post(test, data=line, headers=headers)
 
             data_base = BeautifulSoup(base_resp.text, "html.parser")
             data_test = BeautifulSoup(test_resp.text, "html.parser")
@@ -100,7 +97,6 @@ def diff_query():
 
         file.close()
 
-    # data = diff.make_file(data_base_str.prettify().splitlines(), data_test_str.prettify().splitlines()).replace('nowrap="nowrap"', '')
 
     return 0
 
