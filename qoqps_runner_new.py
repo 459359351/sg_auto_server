@@ -550,7 +550,7 @@ def set_content_to_x(content, cost_type):
     cursor.execute(sql)
     db.commit()
 
-def run_diff(file_path, performance_result, cost_type):
+def run_diff(file_path, cost_type, mission_id):
     asycmd = asycommands.TrAsyCommands(timeout=120)
     asycmd_list.append(asycmd)
 
@@ -618,7 +618,7 @@ def run_diff(file_path, performance_result, cost_type):
     stop_proc(service_pid)
     update_errorlog("[%s] %s webqo stoped\n" % (get_now_time(), cost_type))
 
-    return get_performance(file_path + '/QueryOptimizer/err.log', performance_result, cost_type)
+    return 0
 
 def performance_once(file_path, performance_result, cost_type):
     asycmd = asycommands.TrAsyCommands(timeout=120)
@@ -1117,7 +1117,7 @@ def main():
                 return 5
     elif testitem==0:
         try:
-            ret=run_diff(test_path,"cost_test")
+            ret=run_diff(test_path,"cost_test",mission_id)
             if (ret!=0):
                 set_status(3)
                 return -1

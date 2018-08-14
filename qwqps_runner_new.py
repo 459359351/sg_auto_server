@@ -535,7 +535,7 @@ def run_performace(file_path, cost_type):
 
 
 
-def run_diff(file_path, cost_type):
+def run_diff(file_path, cost_type, mission_id):
     asycmd = asycommands.TrAsyCommands(timeout=120)
     asycmd_list.append(asycmd)
     # kill lt-queryoptimiz
@@ -1098,7 +1098,7 @@ def main():
                 return 5
     elif testitem==0:
         try:
-            ret = run_diff(test_path, "cost_test")
+            ret = run_diff(test_path, "cost_test",mission_id)
             if (ret != 0):
                 set_status(3)
                 return -1
