@@ -64,7 +64,7 @@ def diff_query(base, test, mission_id):
 
     if base == "http://webqw01.web.djt.ted:8019/request":
 
-        with open("longdifff_query1", 'r+') as file:
+        with open("/search/odin/daemon/qw_diff/longdiff/longdifff_query1", 'r+') as file:
             for line in file.readlines():
                 line = line.replace("\r\n", "")
                 headers = {"Content-type": "application/x-www-form-urlencoded;charset=UTF-16LE"}
@@ -127,7 +127,7 @@ def diff_query(base, test, mission_id):
         return 0
 
     elif base == "http://webqo01.web.djt.ted:8012/request":
-        with open("longdiff_query", 'r+') as file:
+        with open("/search/odin/daemon/qo_diff/longdiff/longdiff_query", 'r+') as file:
             for line in file.readlines():
                 line = line.replace("\r\n", "")
                 headers = {"Content-type": "application/x-www-form-urlencoded;charset=UTF-16LE"}
