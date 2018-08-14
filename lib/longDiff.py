@@ -64,31 +64,33 @@ def diff_query(base, test, mission_id):
 
     if base == "http://webqw01.web.djt.ted:8019/request":
 
-        with open("/search/odin/daemon/qw_diff/longdiff_query", 'r+') as file:
+        with open("longdifff_query1", 'r+') as file:
             for line in file.readlines():
                 line = line.replace("\r\n", "")
                 headers = {"Content-type": "application/x-www-form-urlencoded;charset=UTF-16LE"}
                 base_resp = requests.post(base, data=line, headers=headers)
                 test_resp = requests.post(test, data=line, headers=headers)
 
-                data_base = BeautifulSoup(base_resp.text, "html.parser")
-                data_test = BeautifulSoup(test_resp.text, "html.parser")
+                if base_resp.text!=test_resp.text:
 
-                if data_base.find('srcs_str') != None or data_base.find('dests_str') != None or data_base.find(
-                        'level') != None or data_base.find('src_query') != None or data_base.find(
-                    'clk_qr_dest_node') != None:
-                    base_result_qw += str(re.findall(r'<(.*?)<config', str(data_base)))
-                    base_result_qw += str(
-                        data_base.find_all(["srcs_str", "dests_str", "level", "src_query", "clk_qr_dest_node", ]))
+                    data_base = BeautifulSoup(base_resp.text, "html.parser")
+                    data_test = BeautifulSoup(test_resp.text, "html.parser")
 
-                if data_base.find('srcs_str') != None or data_base.find('dests_str') != None or data_base.find(
-                        'level') != None or data_base.find('src_query') != None or data_base.find(
-                    'clk_qr_dest_node') != None:
-                    test_result_qw += str(re.findall("(.*?)<config", str(data_test)))
-                    test_result_qw += str(
-                        data_test.find_all(["srcs_str", "dests_str", "level", "src_query", "clk_qr_dest_node", ]))
+                    if data_base.find('srcs_str') != None or data_base.find('dests_str') != None or data_base.find(
+                            'level') != None or data_base.find('src_query') != None or data_base.find(
+                        'clk_qr_dest_node') != None:
+                        base_result_qw += str(re.findall(r'<(.*?)<config', str(data_base)))
+                        base_result_qw += str(
+                            data_base.find_all(["srcs_str", "dests_str", "level", "src_query", "clk_qr_dest_node", ]))
 
-                temp_qw += 1
+                    if data_base.find('srcs_str') != None or data_base.find('dests_str') != None or data_base.find(
+                            'level') != None or data_base.find('src_query') != None or data_base.find(
+                        'clk_qr_dest_node') != None:
+                        test_result_qw += str(re.findall("(.*?)<config", str(data_test)))
+                        test_result_qw += str(
+                            data_test.find_all(["srcs_str", "dests_str", "level", "src_query", "clk_qr_dest_node", ]))
+
+                    temp_qw += 1
 
                 if temp_qw == 3:
                     base_result_qw = base_result_qw.replace("'", '').replace('[', '').replace(']', '').replace(',', '')
@@ -108,6 +110,7 @@ def diff_query(base, test, mission_id):
 
                     temp_qw = 0
 
+
             base_result_qw = BeautifulSoup(str(base_result_qw), "html.parser")
             test_result_qw = BeautifulSoup(str(test_result_qw), "html.parser")
             diff_qw = difflib.HtmlDiff()
@@ -119,22 +122,22 @@ def diff_query(base, test, mission_id):
 
             update_qw_diffResult(data_qw, mission_id)
 
-            file.close()
+        file.close()
 
         return 0
 
     elif base == "http://webqo01.web.djt.ted:8012/request":
-        with open("/search/odin/daemon/qo_diff/longdiff_query", 'r+') as file:
+        with open("longdiff_query", 'r+') as file:
             for line in file.readlines():
                 line = line.replace("\r\n", "")
                 headers = {"Content-type": "application/x-www-form-urlencoded;charset=UTF-16LE"}
                 base_resp = requests.post(base, data=line, headers=headers)
                 test_resp = requests.post(test, data=line, headers=headers)
 
-                base_result_qo += base_resp.text.encode('utf-8')
-                test_result_qo += test_resp.text.encode('utf-8')
-
-                temp_qo += 1
+                if base_resp.text!=test_resp.text:
+                    base_result_qo += base_resp.text.encode('utf-8')
+                    test_result_qo += test_resp.text.encode('utf-8')
+                    temp_qo += 1
 
                 if temp_qo == 3:
                     # base_result = base_resp.text.replace("'", '').replace('[', '').replace(']', '').replace(',', '')
@@ -158,18 +161,17 @@ def diff_query(base, test, mission_id):
             test_result = BeautifulSoup(str(test_result_qo), "html.parser")
             diff_qo = difflib.HtmlDiff()
             # data = diff.make_table(str(base_result).splitlines(), str(test_result).splitlines())
-            # data = diff.make_table(data_base_str.prettify().splitlines(), data_test_str.prettify().splitlines())
             data_qo = diff_qo.make_table(base_result.prettify().splitlines(), test_result.prettify().splitlines())
 
             data_qo = cgi.escape(data_qo.replace("'", "&#39;"), quote=True)
 
             update_qo_diffResult(data_qo, mission_id)
 
-            file.close()
+        file.close()
 
         return 0
 
 
 if __name__ == '__main__':
-    diff_query("http://webqo01.web.djt.ted:8012/request", "http://webqo01.web.djt.ted:8012/request",68)
+    diff_query("http://webqw01.web.djt.ted:8019/request", "http://webqw01.web.djt.ted:8019/request",68)
 # update_diffResult("data",68)
