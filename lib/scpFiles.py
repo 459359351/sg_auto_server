@@ -31,5 +31,7 @@ def scp_diff_conf(file_path, newconfip, newconfuser, newconfpassw, newconfpath):
     update_errorlog("[%s] try scp rd longdiff_query to test enviroment success\n" % get_now_time())
     return 0
 
-scp_diff_conf("/search/odin/daemon", "webqw01.web.djt.ted", "guest", "Sogou@)!$", "/opt/guest/longdiff_query")
+
+if __name__ == '__main__':
+    scp_diff_conf("/search/odin/daemon", "webqw01.web.djt.ted", "guest", "Sogou@)!$", "/opt/guest/longdiff_query")
 
