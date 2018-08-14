@@ -44,7 +44,7 @@ def diff_query():
 
     temp = 0
 
-    with open("query", 'r+') as file:
+    with open("/search/odin/daemon/longdiff/longdiff_query", 'r+') as file:
         for line in file.readlines():
             line = line.replace("\r\n", "")
             headers = {"Content-type": "application/x-www-form-urlencoded;charset=UTF-16LE"}
