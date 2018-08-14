@@ -15,7 +15,6 @@ from lib import svnpkg
 from lib import makelink
 from lib import Email
 from lib import longDiff
-from lib import scpFiles
 
 import psutil
 import hashlib
@@ -34,6 +33,30 @@ cursor = db.cursor()
 mission_id = int(sys.argv[1])
 asycmd_list = list()
 proc_list = list()
+
+def scp_diff_conf(file_path, newconfip, newconfuser, newconfpassw, newconfpath):
+    update_errorlog("[%s] try scp rd longdiff_query to test enviroment\n" % get_now_time())
+    if os.path.exists(file_path + "/longdiff/longdiff_query"):
+        update_errorlog("[%s] %s\n" % (get_now_time(), "long_diffquery  exists, del it"))
+        os.popen("rm -rf " + file_path + "/longdiff/longdiff_query")
+
+    passwd_key = '.*assword.*'
+
+    cmdline = 'scp -r %s@%s:%s %s/' % (newconfuser, newconfip, newconfpath, file_path + '/longdiff')
+    try:
+        child = pexpect.spawn(cmdline)
+        expect_result = child.expect([r'assword:', r'yes/no'], timeout=30)
+        if expect_result == 0:
+            child.sendline(newconfpassw)
+        elif expect_result == 1:
+            child.sendline('yes')
+            child.expect(passwd_key, timeout=30)
+            child.sendline(newconfpassw)
+        child.expect(pexpect.EOF)
+    except Exception as e:
+        update_errorlog("[%s] %s, scp rd long_diff failed \n" % (get_now_time(), e))
+    update_errorlog("[%s] try scp rd longdiff_query to test enviroment success\n" % get_now_time())
+    return 0
 
 
 def get_now_time():
@@ -856,7 +879,7 @@ def main():
             set_status(3)
             return -1
     elif testitem == 0:
-        scpFiles.scp_diff_conf("/search/odin/daemon", query_ip, query_user, query_pwd, query_path)
+        scp_diff_conf("/search/odin/daemon", query_ip, query_user, query_pwd, query_path)
 
     # ret_sync_ol_data = sync_ol_data_to_local(ol_data_path+"/data")
     #    if ret_sync_ol_data != 0:
