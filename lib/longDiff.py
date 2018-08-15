@@ -24,7 +24,7 @@ def update_qw_diffResult(data_content, diff_fk_id):
     try:
         cursor.execute(sql)
         db.commit()
-        print("success webqw")
+        # print("success webqw")
     except Exception as e:
         print e
         db.rollback()
@@ -41,7 +41,7 @@ def update_qo_diffResult(data_content, diff_fk_id):
     try:
         cursor.execute(sql)
         db.commit()
-        print("success webqo ")
+        # print("success webqo ")
     except Exception as e:
         print e
         db.rollback()
@@ -73,8 +73,8 @@ def diff_query(base, test, mission_id):
 
                 if base_resp.text!=test_resp.text:
 
-                    data_base = BeautifulSoup(base_resp.text, "html.parser")
-                    data_test = BeautifulSoup(test_resp.text, "html.parser")
+                    data_base = BeautifulSoup(base_resp.text.encode('utf-8'), "html.parser")
+                    data_test = BeautifulSoup(test_resp.text.encode('utf-8'), "html.parser")
 
                     if data_base.find('srcs_str') != None or data_base.find('dests_str') != None or data_base.find(
                             'level') != None or data_base.find('src_query') != None or data_base.find(
@@ -91,8 +91,6 @@ def diff_query(base, test, mission_id):
                             data_test.find_all(["srcs_str", "dests_str", "level", "src_query", "clk_qr_dest_node", ]))
 
                     temp_qw += 1
-                else:
-                    print "qwdiff the same "
 
                 if temp_qw == 3:
                     base_result_qw = base_result_qw.replace("'", '').replace('[', '').replace(']', '').replace(',', '')
@@ -129,7 +127,7 @@ def diff_query(base, test, mission_id):
         return 0
 
     elif base == "http://webqo01.web.djt.ted:8012/request":
-        with open("/search/odin/daemon/qw_diff/longdiff/longdiff_query", 'r+') as file:
+        with open("/search/odin/daemon/qo_diff/longdiff/longdiff_query", 'r+') as file:
             for line in file.readlines():
                 line = line.replace("\r\n", "")
                 headers = {"Content-type": "application/x-www-form-urlencoded;charset=UTF-16LE"}
@@ -140,8 +138,6 @@ def diff_query(base, test, mission_id):
                     base_result_qo += base_resp.text.encode('utf-8')
                     test_result_qo += test_resp.text.encode('utf-8')
                     temp_qo += 1
-                else:
-                    print 'qodiff the same'
 
                 if temp_qo == 3:
                     # base_result = base_resp.text.replace("'", '').replace('[', '').replace(']', '').replace(',', '')
