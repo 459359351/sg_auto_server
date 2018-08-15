@@ -16,7 +16,7 @@ def get_now_time():
 
 
 def update_qw_diffResult(data_content, diff_fk_id):
-    db = pymysql.connect('10.134.110.163', 'root', 'Zhangjj@sogou123', 'sogotest')
+    db = pymysql.connect('10.134.110.163', 'root', 'Zhangjj@sogou123', 'sogotest',use_unicode=True, charset='utf8')
     cursor = db.cursor()
     sql = "INSERT INTO %s(create_time,user,diff_content,diff_fk_id) VALUES ('%s','%s','%s',%d)" % (
         'webqw_webqwdiffcontent', 'gongyanli', get_now_time(), data_content, diff_fk_id)
@@ -33,7 +33,7 @@ def update_qw_diffResult(data_content, diff_fk_id):
 
 
 def update_qo_diffResult(data_content, diff_fk_id):
-    db = pymysql.connect('10.134.110.163', 'root', 'Zhangjj@sogou123', 'sogotest')
+    db = pymysql.connect('10.134.110.163', 'root', 'Zhangjj@sogou123', 'sogotest',use_unicode=True, charset='utf8')
     cursor = db.cursor()
     sql = "INSERT INTO %s(create_time,user,diff_content,diff_fk_id) VALUES ('%s','%s','%s',%d)" % (
         'webqo_webqodiffcontent', 'gongyanli', get_now_time(), data_content, diff_fk_id)
@@ -86,11 +86,13 @@ def diff_query(base, test, mission_id):
                     if data_base.find('srcs_str') != None or data_base.find('dests_str') != None or data_base.find(
                             'level') != None or data_base.find('src_query') != None or data_base.find(
                         'clk_qr_dest_node') != None:
-                        test_result_qw += str(re.findall("(.*?)<config", str(data_test)))
+                        test_result_qw += str(re.findall("<(.*?)<config", str(data_test)))
                         test_result_qw += str(
                             data_test.find_all(["srcs_str", "dests_str", "level", "src_query", "clk_qr_dest_node", ]))
 
                     temp_qw += 1
+                else:
+                    print "qwdiff the same "
 
                 if temp_qw == 3:
                     base_result_qw = base_result_qw.replace("'", '').replace('[', '').replace(']', '').replace(',', '')
@@ -127,7 +129,7 @@ def diff_query(base, test, mission_id):
         return 0
 
     elif base == "http://webqo01.web.djt.ted:8012/request":
-        with open("/search/odin/daemon/qo_diff/longdiff/longdiff_query", 'r+') as file:
+        with open("/search/odin/daemon/qw_diff/longdiff/longdiff_query", 'r+') as file:
             for line in file.readlines():
                 line = line.replace("\r\n", "")
                 headers = {"Content-type": "application/x-www-form-urlencoded;charset=UTF-16LE"}
@@ -138,6 +140,8 @@ def diff_query(base, test, mission_id):
                     base_result_qo += base_resp.text.encode('utf-8')
                     test_result_qo += test_resp.text.encode('utf-8')
                     temp_qo += 1
+                else:
+                    print 'qodiff the same'
 
                 if temp_qo == 3:
                     # base_result = base_resp.text.replace("'", '').replace('[', '').replace(']', '').replace(',', '')
@@ -173,5 +177,6 @@ def diff_query(base, test, mission_id):
 
 
 if __name__ == '__main__':
-    diff_query("http://webqw01.web.djt.ted:8019/request", "http://webqw01.web.djt.ted:8019/request",68)
+    # diff_query("http://webqw01.web.djt.ted:8019/request", "http://webqw01.web.djt.ted:8019/request",68)
+    diff_query("http://webqo01.web.djt.ted:8012/request", "http://webqo01.web.djt.ted:8012/request",188)
 # update_diffResult("data",68)
