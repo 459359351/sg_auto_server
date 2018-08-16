@@ -38,7 +38,8 @@ diff_path="/search/odin/daemon/longdiff"
 #press conf
 sggp_path = os.path.join(root_path, "tools/sggp")
 sggp_query_path = os.path.join(root_path, "tools/sggp/data/")
-runlogbak = os.path.join(root_path, "logbak/")
+# runlogbak = os.path.join(root_path, "logbak/")
+runlogbak="/search/summary_o/webqw/logbak/"
 
 #database conf
 database_host="10.134.110.163"

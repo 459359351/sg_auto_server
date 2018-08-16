@@ -83,8 +83,8 @@ def diff_query(base, test, mission_id):
                         base_result_qw += str(
                             data_base.find_all(["srcs_str", "dests_str", "level", "src_query", "clk_qr_dest_node", ]))
 
-                    if data_base.find('srcs_str') != None or data_base.find('dests_str') != None or data_base.find(
-                            'level') != None or data_base.find('src_query') != None or data_base.find(
+                    if data_test.find('srcs_str') != None or data_test.find('dests_str') != None or data_test.find(
+                            'level') != None or data_test.find('src_query') != None or data_test.find(
                         'clk_qr_dest_node') != None:
                         test_result_qw += str(re.findall("<(.*?)<config", str(data_test)))
                         test_result_qw += str(

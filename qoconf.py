@@ -36,7 +36,9 @@ start_sc = os.path.join(root_path, "tools/start.sh")            # sggp压力工�
 sggp_path = os.path.join(root_path, "tools/sggp")
 sggp_conf = os.path.join(root_path, "tools/sggp/web_qo.ini")
 sggp_query_path = os.path.join(root_path, "tools/sggp/data/")
-runlogbak = os.path.join(root_path, "logbak/")
+# runlogbak = os.path.join(root_path, "logbak/")
+runlogbak="/search/summary_o/webqo/logbak/"
+
 
 #database conf
 database_host="10.134.110.163"
