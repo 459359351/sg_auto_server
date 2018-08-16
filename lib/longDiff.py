@@ -16,7 +16,7 @@ def get_now_time():
 
 
 def update_qw_diffResult(data_content, diff_fk_id):
-    db = pymysql.connect('10.134.110.163', 'root', 'Zhangjj@sogou123', 'sogotest',use_unicode=True, charset='utf8')
+    db = pymysql.connect('10.134.110.163', 'root', 'Websearch@qa66', 'sogotest',use_unicode=True, charset='utf8')
     cursor = db.cursor()
     sql = "INSERT INTO %s(create_time,user,diff_content,diff_fk_id) VALUES ('%s','%s','%s',%d)" % (
         'webqw_webqwdiffcontent', 'gongyanli', get_now_time(), data_content, diff_fk_id)
@@ -33,7 +33,7 @@ def update_qw_diffResult(data_content, diff_fk_id):
 
 
 def update_qo_diffResult(data_content, diff_fk_id):
-    db = pymysql.connect('10.134.110.163', 'root', 'Zhangjj@sogou123', 'sogotest',use_unicode=True, charset='utf8')
+    db = pymysql.connect('10.134.110.163', 'root', 'Websearch@qa66', 'sogotest',use_unicode=True, charset='utf8')
     cursor = db.cursor()
     sql = "INSERT INTO %s(create_time,user,diff_content,diff_fk_id) VALUES ('%s','%s','%s',%d)" % (
         'webqo_webqodiffcontent', 'gongyanli', get_now_time(), data_content, diff_fk_id)

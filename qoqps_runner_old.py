@@ -14,7 +14,6 @@ from lib import asycommands
 from lib import svnpkg
 from lib import makelink
 from lib import Email
-from lib import longDiff
 
 import psutil
 import hashlib
@@ -22,10 +21,6 @@ import signal
 import pexpect
 import shutil
 import urllib
-import cgi
-
-reload(sys)
-sys.setdefaultencoding('utf-8')
 
 db = pymysql.connect(database_host, database_user, database_pass, database_data)
 cursor = db.cursor()
@@ -34,29 +29,6 @@ mission_id = int(sys.argv[1])
 asycmd_list = list()
 proc_list = list()
 
-def scp_diff_conf(file_path, newconfip, newconfuser, newconfpassw, newconfpath):
-    update_errorlog("[%s] try scp rd longdiff_query to test enviroment\n" % get_now_time())
-    if os.path.exists(file_path + "/longdiff/longdiff_query"):
-        update_errorlog("[%s] %s\n" % (get_now_time(), "long_diffquery  exists, del it"))
-        os.popen("rm -rf " + file_path + "/longdiff/longdiff_query")
-
-    passwd_key = '.*assword.*'
-
-    cmdline = 'scp -r %s@%s:%s %s/' % (newconfuser, newconfip, newconfpath, file_path + '/longdiff')
-    try:
-        child = pexpect.spawn(cmdline)
-        expect_result = child.expect([r'assword:', r'yes/no'], timeout=30)
-        if expect_result == 0:
-            child.sendline(newconfpassw)
-        elif expect_result == 1:
-            child.sendline('yes')
-            child.expect(passwd_key, timeout=30)
-            child.sendline(newconfpassw)
-        child.expect(pexpect.EOF)
-    except Exception as e:
-        update_errorlog("[%s] %s, scp rd long_diff failed \n" % (get_now_time(), e))
-    update_errorlog("[%s] try scp rd longdiff_query to test enviroment success\n" % get_now_time())
-    return 0
 
 def get_now_time():
     timeArray = time.localtime()
@@ -66,7 +38,7 @@ def get_now_time():
 def get_material():
     # newconfpath | newconfip | newconfpassw | newconfuser | newdataip | newdatapassw | newdatauser | newdatapath | newdata_topath
 
-    sql = "SELECT testsvn, basesvn, testitem, newconfip, newconfuser, newconfpassw, newconfpath, newdataip, newdatauser, newdatapassw, newdatapath, newdata_topath, press_qps, press_time, press_expid, press_rate, query_ip, query_user, query_pwd, query_path FROM %s where id='%d'" % (database_table, mission_id)
+    sql = "SELECT testsvn, basesvn, testitem, newconfip, newconfuser, newconfpassw, newconfpath, newdataip, newdatauser, newdatapassw, newdatapath, newdata_topath, press_qps, press_time, press_expid, press_rate FROM %s where id='%d'" % (database_table, mission_id)
     cursor.execute(sql)
     data = cursor.fetchone()
     sql = "UPDATE %s set start_time='%s', status = 2 where id=%d" % (database_table, get_now_time(), mission_id)
@@ -550,74 +522,6 @@ def set_content_to_x(content, cost_type):
     cursor.execute(sql)
     db.commit()
 
-def run_diff(file_path, cost_type, mission_id):
-    asycmd = asycommands.TrAsyCommands(timeout=120)
-    asycmd_list.append(asycmd)
-
-    # kill lt-queryoptimiz
-    for iotype, line in asycmd.execute_with_data(['ps -ef|grep lt-queryoptimiz|grep -v grep'], shell=True):
-        if (line.find('lt-queryoptimiz') != -1):
-            pid = int(line.split()[1])
-            stop_proc(pid)
-
-    # clean Mem
-    sync_cmd = subprocess.Popen(['sync'], shell=False, cwd=file_path, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-    sync_cmd.wait()
-    if (sync_cmd.returncode == 0):
-        update_errorlog("[%s] %s sync success \n" % (get_now_time(), cost_type))
-    else:
-        update_errorlog("[%s] %s sync error \n" % (get_now_time(), cost_type))
-
-    echo_three_cmd = subprocess.Popen(['echo 3 > /proc/sys/vm/drop_caches'], shell=True, stdout=subprocess.PIPE,
-                                      stderr=subprocess.PIPE)
-    echo_three_cmd.wait()
-    if (sync_cmd.returncode == 0):
-        update_errorlog("[%s] %s free mem success \n" % (get_now_time(), cost_type))
-    else:
-        update_errorlog("[%s] %s free pagecache, dentries and inodes error \n" % (get_now_time(), cost_type))
-
-    echo_one_cmd = subprocess.Popen(['echo 0 > /proc/sys/vm/drop_caches'], shell=True, stdout=subprocess.PIPE,
-                                    stderr=subprocess.PIPE)
-    echo_one_cmd.wait()
-    if (sync_cmd.returncode == 0):
-        update_errorlog("[%s] %s reset success \n" % (get_now_time(), cost_type))
-    else:
-        update_errorlog("[%s] %s reset free error \n" % (get_now_time(), cost_type))
-
-    log = []
-    # start lt-queryoptimiz
-    update_errorlog("[%s] Begin Start %s webqo\n" % (get_now_time(), cost_type))
-    (ret, service_pid) = lanch(file_path + "/QueryOptimizer", "start.sh", 8012, log)
-    if (ret < 0):
-        bakfile = runlogbak + cost_type + '_starterr_' + str(mission_id)
-        os.popen("cp %s %s" % (file_path + '/QueryOptimizer/err.log', bakfile))
-        update_errorlog("[%s] %s webqo Start error, errlog path %s s\n" % (get_now_time(), cost_type, local_ip + runlogbak))
-        for fname in os.listdir(file_path + '/QueryOptimizer'):
-            if 'core' in fname:
-                corefile = runlogbak + cost_type + '_startcore_' + str(mission_id)
-                os.popen("cp %s %s" % (file_path + '/QueryOptimizer/core.*', corefile))
-                update_errorlog("[%s] %s webqo Start core, core file path %s s\n" % (
-                    get_now_time(), cost_type, local_ip + runlogbak))
-        time.sleep(0.5)
-        up_log = ""
-        for line in log:
-            up_log += "[%s] %s" % (get_now_time(), line + '\n')
-        update_errorlog("%s\n" % (up_log))
-        for iotype, line in asycmd.execute_with_data(['/bin/tail', '-50', file_path + "/QueryOptimizer/err.log"],
-                                                     shell=False):
-            up_log += line + '\n'
-        update_errorlog(up_log.decode('gbk').encode('utf-8').replace("'", "\\'"))
-        return -1
-    update_errorlog("[%s] %s webqo Start OK, cost %d s, PID %s \n" % (get_now_time(), cost_type, ret, str(service_pid)))
-
-    # 2000 diff
-    longDiff.diff_query("http://webqo01.web.djt.ted:8012/request","http://10.134.82.27:8012/request",mission_id)
-
-    # Stop webqo
-    stop_proc(service_pid)
-    update_errorlog("[%s] %s webqo stoped\n" % (get_now_time(), cost_type))
-
-    return 0
 
 def performance_once(file_path, performance_result, cost_type):
     asycmd = asycommands.TrAsyCommands(timeout=120)
@@ -660,7 +564,8 @@ def performance_once(file_path, performance_result, cost_type):
     if (ret < 0):
         bakfile = runlogbak + cost_type + '_starterr_' + str(mission_id)
         os.popen("cp %s %s" % (file_path + '/QueryOptimizer/err.log', bakfile))
-        update_errorlog("[%s] %s webqo Start error, errlog path %s s\n" % (get_now_time(), cost_type, local_ip + runlogbak))
+        update_errorlog(
+            "[%s] %s webqo Start error, errlog path %s s\n" % (get_now_time(), cost_type, local_ip + runlogbak))
         for fname in os.listdir(file_path + '/QueryOptimizer'):
             if 'core' in fname:
                 corefile = runlogbak + cost_type + '_startcore_' + str(mission_id)
@@ -686,7 +591,8 @@ def performance_once(file_path, performance_result, cost_type):
         (ret, tools_pid) = sggp_lanch(sggp_path, "start_qo_test.sh", log)
     else:
         (ret, tools_pid) = sggp_lanch(sggp_path, "start_qo_base.sh", log)
-    print(ret, tools_pid)
+    print
+    ret, tools_pid
     if (ret < 0):
         time.sleep(0.5)
         up_log = ""
@@ -848,7 +754,8 @@ def main():
 
     (
         testsvn, basesvn, testitem, newconfip, newconfuser, newconfpassw, newconfpath, newdataip, newdatauser,
-        newdatapassw,newdatapath, newdata_topath, press_qps, press_time, press_expid, press_rate, query_ip, query_user, query_pwd, query_path) = get_material()
+        newdatapassw,
+        newdatapath, newdata_topath, press_qps, press_time, press_expid, press_rate) = get_material()
 
     loginfo.log_info("testsvn:" + testsvn)
     loginfo.log_info("basesvn:" + basesvn)
@@ -866,11 +773,6 @@ def main():
     loginfo.log_info("press_time:" + str(press_time))
     loginfo.log_info("press_expid:" + str(press_expid))
     loginfo.log_info("press_rate:" + str(press_rate))
-    loginfo.log_info("query_ip:" + str(query_ip))
-    loginfo.log_info("query_user:" + str(query_user))
-    loginfo.log_info("query_pwd:" + str(query_pwd))
-    loginfo.log_info("query_path:" + str(query_path))
-
 
     ####configure sggp/ACE_Pressure_CACHE.ini
 
@@ -880,14 +782,11 @@ def main():
     #        set_status(3)
     #        return -1
 
-    if testitem==1:
-        ret_configure_sggp_test = configure_sggp_test(sggp_path, press_qps, press_time, press_expid, press_rate)
-        if ret_configure_sggp_test != 0:
-            update_errorlog("[%s] %s\n" % (get_now_time(), "configure sggp_conf has some error, pls check"))
-            set_status(3)
-            return -1
-    elif testitem==0:
-        scp_diff_conf("/search/odin/daemon/qo_diff",query_ip,query_user,query_pwd,query_path)
+    ret_configure_sggp_test = configure_sggp_test(sggp_path, press_qps, press_time, press_expid, press_rate)
+    if ret_configure_sggp_test != 0:
+        update_errorlog("[%s] %s\n" % (get_now_time(), "configure sggp_conf has some error, pls check"))
+        set_status(3)
+        return -1
 
     # ret_sync_ol_data = sync_ol_data_to_local(ol_data_path+"/data")
     #    if ret_sync_ol_data != 0:
@@ -1081,10 +980,9 @@ def main():
             return 4
         update_errorlog("[%s] %s\n" % (get_now_time(), "cp start.sh to base env ok"))
 
-    if testitem==1:
-        if basesvn.strip() != "":
-            ### start base perform
-            # if (testitem == 1):
+    if basesvn.strip() != "":
+        ### start base perform
+        if (testitem == 1):
             try:
                 ret = run_performace(base_path, "cost_base")
                 if (ret != 0):
@@ -1098,9 +996,9 @@ def main():
                 set_status(3)
                 return 5
 
-        if testsvn.strip() != "":
-            ### start test perform
-            # if (testitem == 1):
+    if testsvn.strip() != "":
+        ### start test perform
+        if (testitem == 1):
             try:
                 ret = run_performace(test_path, "cost_test")
                 if (ret != 0):
@@ -1113,19 +1011,6 @@ def main():
             if (ret != 0):
                 set_status(3)
                 return 5
-    elif testitem==0:
-        try:
-            ret=run_diff(test_path,"cost_test",mission_id)
-            if (ret!=0):
-                set_status(3)
-                return -1
-        except Exception as e:
-            update_errorlog("[%s] %s\n" % (get_now_time() ,e))
-            set_status(3)
-            return -1
-        if (ret!=0):
-            set_status(3)
-            return 5
     set_status(4)
     return 0
 
