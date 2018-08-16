@@ -45,7 +45,7 @@ database_host="10.134.110.163"
 database_data="sogotest"
 database_table="webqo_webqoqps"
 database_user="root"
-database_pass="Zhangjj@sogou123"
+database_pass="Websearch@qa66"
 
 
 

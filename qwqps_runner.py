@@ -1038,5 +1038,4 @@ signal.signal(10, sig_handler)
 signal.signal(15, sig_handler)
 
 if __name__ == '__main__':
-    #main()
-    scp_diff_conf("/search/odin/daemon","webqw01.web.djt.ted","guest","Sogou@)!$","/opt/guest/longdiff_query")
+    main()
