@@ -611,7 +611,11 @@ def run_diff(file_path, cost_type, mission_id):
     update_errorlog("[%s] %s webqo Start OK, cost %d s, PID %s \n" % (get_now_time(), cost_type, ret, str(service_pid)))
 
     # 2000 diff
-    longDiff.diff_query("http://webqo01.web.djt.ted:8012/request","http://10.134.82.27:8012/request",mission_id)
+    longDiffResult=longDiff.diff_query("http://webqo01.web.djt.ted:8012/request","http://10.134.82.27:8012/request",mission_id)
+    if longDiffResult==0:
+	update_errorlog("2000 diff Result insert Datebase success!")
+    else:
+        update_errorlog("2000 diff Result insert Datebase failed!")    
 
     # Stop webqo
     stop_proc(service_pid)
