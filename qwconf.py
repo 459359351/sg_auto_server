@@ -5,7 +5,7 @@ import os
 
 autoqps_path = "/search/odin/daemon/automission/webqw"  # 工具路径地址
 
-online_host = "rsync.webqw01.web.1.djt.ted"  # 线上host
+online_host = "rsync.webqw01.web.djt.ted"  # 线上host
 online_path = "/search/odin/daemon/qw"      # 线上路径
 
 #offline_host = "rsync.datatest01.web.sjs.ted"

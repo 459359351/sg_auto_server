@@ -880,11 +880,11 @@ def main():
     elif testitem == 0:
         scp_diff_conf("/search/odin/daemon/qw_diff", query_ip, query_user, query_pwd, query_path)
 
-    # ret_sync_ol_data = sync_ol_data_to_local(ol_data_path+"/data")
-    #    if ret_sync_ol_data != 0:
-    #        update_errorlog("[%s] %s\n" % (get_now_time(), "sync_ol_data_to_local has some error, pls check"))
-    #        set_status(3)
-    #        return -1
+    #ret_sync_ol_data = sync_ol_data_to_local(ol_data_path+"/data")
+    #   if ret_sync_ol_data != 0:
+    #       update_errorlog("[%s] %s\n" % (get_now_time(), "sync_ol_data_to_local has some error, pls check"))
+    #       set_status(3)
+    #       return -1
 
     ret_sync_olbl_data = sync_olbl_data_to_local(black_data_path)
     if ret_sync_olbl_data != 0:
