@@ -42,9 +42,9 @@ sggp_query_path = os.path.join(root_path, "tools/sggp/data/")
 runlogbak="/search/summary_o/webqw/logbak/"
 
 #database conf
-database_host="10.134.110.163"
-database_data="sogotest"
-database_table="webqw_webqwqps"
+database_host="10.144.120.30"
+database_data="sogowebqa"
+database_table="webqw_qps"
 database_user="root"
 database_pass="Websearch@qa66"
 

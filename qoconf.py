@@ -41,9 +41,9 @@ runlogbak="/search/summary_o/webqo/logbak/"
 
 
 #database conf
-database_host="10.134.110.163"
-database_data="sogotest"
-database_table="webqo_webqoqps"
+database_host="10.144.120.30"
+database_data="sogowebqa"
+database_table="webqo_qps"
 database_user="root"
 database_pass="Websearch@qa66"
 
