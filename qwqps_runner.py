@@ -109,7 +109,7 @@ def set_status(stat):
         cursor.execute(sql_User)
         data = cursor.fetchone()
         title = 'Webqw Performance Test Result'
-        body_head = """<html><head><style type="text/css">table{border-collapse:collapse;margin:0 auto;text-align:center;}table td,table th{border:1px solid #cad9ea;color:#666;height:30px;}table thead th{background-color:#CCE8EB;width:100px;}table tr:nth-child(odd){background:#fff;}table tr:nth-child(even){background:#F5FAFA;}</style></head><table width='90%' class='table'><thead><tr><th>id</th><th>start_time</th><th>endtime</th><th>cost_test</th><th>cost_base</th><th>details</th></tr></thead>"""
+        body_head = """<html><head><style type="text/css">table{border-collapse:collapse;margin:0 auto;text-align:left;}table td,table th{border:1px solid #cad9ea;color:#666;height:30px;}table thead th{background-color:#CCE8EB;width:100px;}table tr:nth-child(odd){background:#fff;}table tr:nth-child(even){background:#F5FAFA;}</style></head><table width='90%' class='table'><thead><tr><th>id</th><th>start_time</th><th>endtime</th><th>cost_test</th><th>cost_base</th><th>details</th></tr></thead>"""
 
         body_content = """<tr><td>%s</td><td>%s</td><td>%s</td><td>%s</td><td>%s</td><td><a href="http://frontqa.web.sjs.ted/qo_task_detail_%d.html">details</a></td></tr></table></body></html>"""
         body = body_head + body_content % (
@@ -122,7 +122,7 @@ def set_status(stat):
         cursor.execute(sql_User)
         data = cursor.fetchone()
         title = 'Webqw ERROR'
-        body_head = """<html><head><style type="text/css">table{border-collapse:collapse;margin:0 auto;text-align:center;}table td,table th{border:1px solid #cad9ea;color:#666;height:30px;}table thead th{background-color:#CCE8EB;width:100px;}table tr:nth-child(odd){background:#fff;}table tr:nth-child(even){background:#F5FAFA;}</style></head><table width='90%' class='table'><thead><tr><th>id</th><th>start_time</th><th>endtime</th><th>details</th></tr></thead>"""
+        body_head = """<html><head><style type="text/css">table{border-collapse:collapse;margin:0 auto;text-align:left;}table td,table th{border:1px solid #cad9ea;color:#666;height:30px;}table thead th{background-color:#CCE8EB;width:100px;}table tr:nth-child(odd){background:#fff;}table tr:nth-child(even){background:#F5FAFA;}</style></head><table width='90%' class='table'><thead><tr><th>id</th><th>start_time</th><th>endtime</th><th>details</th></tr></thead>"""
 
         body_content = """<tr><td>%s</td><td>%s</td><td>%s</td><td><a href="http://frontqa.web.sjs.ted/qo_task_detail_%d.html">details</a></td></tr></table></body></html>"""
         body = body_head + body_content % (data[0], data[1], data[2], int(data[0]))
