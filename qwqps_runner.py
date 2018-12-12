@@ -365,16 +365,16 @@ def scpnewdata(file_path, host_ip, username, password, newdata_path):
             cmdline = 'scp -r %s@%s:%s %s/' % (username, host_ip, item, file_path + '/' + new_data_dir[item])
 
             try:
-                child = pexpect.spawn(cmdline)
-                expect_result = child.expect([r'assword:', r'yes/no'], timeout=30)
+                child = pexpect.spawn(cmdline,timeout=300)
+                expect_result = child.expect([r'assword:', r'yes/no'], timeout=300)
                 if expect_result == 0:
                     child.sendline(password)
 
                 elif expect_result == 1:
                     child.sendline('yes')
-                    child.expect(passwd_key, timeout=30)
+                    child.expect(passwd_key, timeout=300)
                     child.sendline(password)
-                child.timeout = 120
+                child.timeout = 300
                 child.expect(pexpect.EOF)
 
             except Exception as e:
